@@ -45,6 +45,9 @@ test.describe("Unit-0 playable vertical slice", () => {
   test("entry loads, isolated demo returns idle, and world mirror exposes state", async ({ page }) => {
     await page.goto("/index.html");
     await expect(page.locator("#levelTitle")).toBeVisible();
+    const intro = page.locator("#introSequence");
+    if (await intro.isVisible()) await page.locator("#introButton").click();
+    await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "true");
     await expect(page.locator("#codeLines .code-line").first()).toBeVisible();
     const nudge = page.locator("#starterNudge");
     const dismissNudge = page.locator("#dismissNudge");
@@ -54,11 +57,9 @@ test.describe("Unit-0 playable vertical slice", () => {
     await expect(nudge).not.toHaveAttribute("inert", "");
     const starterCode = await page.locator("#codeLines").innerText();
     await waitForIdle(page);
-    await expect(nudge).toContainText(/try|尝试|试试|跟我做/i);
-    for (const selector of ["[data-nudge-target], .nudge-target", "[data-nudge-target-control], .nudge-target-control"]) {
-      await expect(page.locator(selector)).toHaveCount(1);
-      await expect(page.locator(selector)).toBeVisible();
-    }
+    await expect(nudge).toContainText(/observe|观察|先看/i);
+    await expect(page.locator("[data-nudge-target], .nudge-target")).toHaveCount(0);
+    await expect(page.locator("[data-nudge-target-control], .nudge-target-control")).toHaveCount(0);
     for (const selector of ["#runButton", "#stepButton", "#resetButton", "#hintButton"]) {
       await expect(page.locator(selector)).toBeEnabled();
     }
@@ -128,11 +129,13 @@ test.describe("Unit-0 playable vertical slice", () => {
     const mirror = await worldMirror(page);
     await expect(mirror).toHaveAttribute("data-success", /true|success|on/);
     await expect(page.locator("#levelCard")).not.toHaveClass(/hidden/);
+    await expect(page.locator("#cardNextButton")).toBeFocused();
     expect(await codeLockState(page)).toEqual({ locked: true, allDisabled: true });
     await expect(page.locator("#cardTitle")).toContainText(/rail wakes|signal|restore/i);
 
     await page.locator("#cardNextButton").click();
     await expect(page.locator("#levelNumber")).toHaveText("02");
+    await expect(page.locator("#levelTitle")).toBeFocused();
   });
 
   test("mobile layout has no horizontal overflow and touch-safe controls", async ({ page }) => {

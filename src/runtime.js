@@ -1,8 +1,8 @@
 import { MAX_EVENTS, cloneProgram, evaluateSuccess, getScene, normalizeProgram } from "./levels.js";
+import { edgeControlPoints, pointOnEdge } from "./geometry.js";
 
 const OPERATORS = new Set([">", "<", "=="]);
 const INSTRUCTION_TYPES = new Set(["move", "charge", "pickup", "deliver", "read", "write", "update", "branch"]);
-const MEMORY_NAMES = new Set(["energy", "cargo", "weight", "signal"]);
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -17,18 +17,22 @@ function fail(message, line = 0) {
   return { ok: false, message, line };
 }
 
-function validateValueExpr(expr, depth = 0) {
+function memoryNamesFor(level) {
+  return new Set(level.memoryNames || []);
+}
+
+function validateValueExpr(level, expr, depth = 0) {
   if (!expr || typeof expr !== "object" || depth > 8) return fail("Invalid value expression.");
   if (expr.type === "literal") {
     const valid = (typeof expr.value === "number" && Number.isFinite(expr.value))
       || (typeof expr.value === "string" && expr.value.length > 0);
     return valid ? { ok: true } : fail("Literal must be finite number or non-empty text.");
   }
-  if (expr.type === "memory") return MEMORY_NAMES.has(expr.name) ? { ok: true } : fail("Unknown memory name.");
+  if (expr.type === "memory") return memoryNamesFor(level).has(expr.name) ? { ok: true } : fail("Unknown memory name.");
   if (expr.type === "add" || expr.type === "subtract") {
-    const left = validateValueExpr(expr.left, depth + 1);
+    const left = validateValueExpr(level, expr.left, depth + 1);
     if (!left.ok) return left;
-    return validateValueExpr(expr.right, depth + 1);
+    return validateValueExpr(level, expr.right, depth + 1);
   }
   return fail("Unknown value expression.");
 }
@@ -36,26 +40,35 @@ function validateValueExpr(expr, depth = 0) {
 function validateInstruction(level, item, index) {
   const line = index + 1;
   if (!item || typeof item !== "object" || !INSTRUCTION_TYPES.has(item.type)) return fail("Unknown instruction type.", line);
-  const nodes = new Set(getScene(level).nodes.map((node) => node.id));
+  const scene = getScene(level);
+  const nodes = new Set(scene.nodes.map((node) => node.id));
   if (item.type === "move") return nodes.has(item.to) ? { ok: true } : fail("Move target is not on this rail.", line);
   if (item.type === "charge") return Number.isInteger(item.amount) && item.amount >= 0 && item.amount <= 9 ? { ok: true } : fail("Charge amount must be an integer from 0 to 9.", line);
   if (item.type === "pickup") return typeof item.item === "string" && nodes.has(item.at || "pickup") ? { ok: true } : fail("Pickup target is invalid.", line);
   if (item.type === "deliver") return nodes.has(item.to || "exit") ? { ok: true } : fail("Deliver target is not on this rail.", line);
-  if (item.type === "read") return MEMORY_NAMES.has(item.name) ? { ok: true } : fail("Read references unknown memory.", line);
+  if (item.type === "read") return memoryNamesFor(level).has(item.name) ? { ok: true } : fail("Read references unknown memory.", line);
   if (item.type === "write") {
-    if (!MEMORY_NAMES.has(item.name)) return fail("Write references unknown memory.", line);
-    return validateValueExpr(item.value);
+    if (!memoryNamesFor(level).has(item.name)) return fail("Write references unknown memory.", line);
+    return validateValueExpr(level, item.value);
   }
   if (item.type === "update") {
-    if (!MEMORY_NAMES.has(item.name)) return fail("Update references unknown memory.", line);
-    return validateValueExpr(item.value);
+    if (!memoryNamesFor(level).has(item.name)) return fail("Update references unknown memory.", line);
+    return validateValueExpr(level, item.value);
   }
   if (!OPERATORS.has(item.operator)) return fail("Branch operator is invalid.", line);
-  const left = validateValueExpr(item.left);
+  const left = validateValueExpr(level, item.left);
   if (!left.ok) return { ...left, line };
-  const right = validateValueExpr(item.right);
+  const right = validateValueExpr(level, item.right);
   if (!right.ok) return { ...right, line };
   if (typeof item.pass !== "string" || typeof item.fail !== "string") return fail("Branch paths must be named.", line);
+  const outgoing = new Set(scene.branchNode
+    ? (scene.edges || []).filter(([from]) => from === scene.branchNode).map(([, to]) => to)
+    : []);
+  const aliases = Object.entries(scene.pathAliases || {})
+    .filter(([, target]) => outgoing.has(target))
+    .map(([alias]) => alias);
+  const paths = new Set([...outgoing, ...aliases]);
+  if (!paths.has(item.pass) || !paths.has(item.fail)) return fail("Branch path is not declared by this scene.", line);
   return { ok: true };
 }
 
@@ -86,8 +99,8 @@ export function compileProgram(level, rawProgram) {
   const program = cloneProgram(validation.program);
   const events = [];
   program.instructions.forEach((item, index) => {
-    const base = { id: events.length, line: index + 1, kind: item.type, instruction: clone(item), duration: 240 };
-    if (item.type === "deliver" && getScene(level).nodes.some((node) => ["light", "dark", "open", "reject", "sun"].includes(node.id))) {
+    const base = { id: events.length, instructionId: item.id, sourceLine: index + 1, line: index + 1, kind: item.type, instruction: clone(item), duration: 240 };
+    if (item.type === "deliver" && getScene(level).branchNode) {
       events.push({ ...base, stage: "path", target: "path" });
       events.push({ ...base, id: events.length, stage: "exit", target: item.to || "exit", duration: 260 });
     } else {
@@ -119,7 +132,11 @@ export function compareValues(left, operator, right) {
 }
 
 const sceneNode = (level, id) => getScene(level).nodes.find((node) => node.id === id);
-const pathNode = (level, path) => sceneNode(level, path) || sceneNode(level, path === "open" ? "light" : path === "sun" ? "sun" : "dark");
+const pathNode = (level, path) => {
+  const scene = getScene(level);
+  const resolved = scene.pathAliases?.[path] || path;
+  return sceneNode(level, resolved);
+};
 
 function initialState(level) {
   const first = getScene(level).nodes[0];
@@ -128,11 +145,15 @@ function initialState(level) {
     eventCursor: 0,
     pc: 0,
     activeLine: 0,
+    activeInstructionId: "",
+    activeEdge: null,
     vars: {},
     energy: 0,
     memoryKey: "",
     readName: "",
     readValue: null,
+    dataToken: null,
+    comparison: null,
     carried: null,
     path: "",
     gateBranch: null,
@@ -144,6 +165,7 @@ function initialState(level) {
     anim: null,
     event: "Awaiting input.",
     eventType: "idle",
+    mood: "idle",
     eventLog: [],
     error: "",
     errorLine: 0,
@@ -162,11 +184,32 @@ function errorState(state, message, line) {
     ...state,
     phase: "error",
     eventType: "error",
+    mood: "error",
     error: message,
     errorLine: line,
     event: message,
     eventLog: [...state.eventLog, "ERROR: " + message],
   };
+}
+
+function requirementMessage(requirement) {
+  if (requirement.type === "memoryMin") return "The relay needs more stored power.";
+  if (requirement.type === "carried") return "Unit-0 reaches the relay without the required signal.";
+  return "The world is not ready for this action.";
+}
+
+function checkRequirements(level, state, requirements = []) {
+  for (const requirement of requirements) {
+    if (requirement.type === "memoryMin" && Number(state.vars?.[requirement.name] ?? 0) < Number(requirement.value)) return requirementMessage(requirement);
+    if (requirement.type === "carried" && state.carried !== requirement.value) return requirementMessage(requirement);
+    if (requirement.type === "memoryExists" && !Object.prototype.hasOwnProperty.call(state.vars || {}, requirement.name)) return `Memory ${requirement.name} is empty.`;
+  }
+  return "";
+}
+
+function actionRequirements(level, item) {
+  if (item.type === "deliver") return level.worldRules?.deliver || [];
+  return [];
 }
 
 function applyEvent(level, state, event) {
@@ -175,7 +218,9 @@ function applyEvent(level, state, event) {
     ...state,
     vars: { ...state.vars },
     activeLine: event.line,
+    activeInstructionId: event.instructionId || item.id || "",
     eventType: event.kind,
+    mood: event.kind === "branch" ? "thinking" : event.kind === "read" || event.kind === "write" || event.kind === "update" ? "transfer" : "move",
     eventLog: [...state.eventLog, event.kind.toUpperCase() + " // line " + event.line],
     error: "",
   };
@@ -184,15 +229,17 @@ function applyEvent(level, state, event) {
     return next;
   }
   if (item.type === "charge") {
-    if (state.unitNode !== "charge") return errorState(state, "Charge station not reached. Move to CHARGE first.", event.line);
+    const chargeNode = level.worldRules?.chargeNode || "charge";
+    if (state.unitNode !== chargeNode) return errorState(state, "The charge node is not reached yet.", event.line);
+    const memoryName = level.worldRules?.chargeMemory || "energy";
     next.energy = (state.energy || 0) + item.amount;
-    next.vars.energy = next.energy;
-    next.memoryKey = "energy";
-    next.event = "CHARGE  energy = " + next.energy;
+    next.vars[memoryName] = next.energy;
+    next.memoryKey = memoryName;
+    next.event = "CHARGE  " + memoryName + " = " + next.energy;
     return next;
   }
   if (item.type === "pickup") {
-    if (state.unitNode !== "dock" && state.unitNode !== (item.at || "pickup")) return errorState(state, "Pickup came before Unit-0 reached input rail.", event.line);
+    if (state.unitNode !== "dock" && state.unitNode !== (item.at || "pickup")) return errorState(state, "Unit-0 has not reached the input rail.", event.line);
     next.carried = item.item;
     next.event = "PICKUP  " + item.item;
     return next;
@@ -201,8 +248,12 @@ function applyEvent(level, state, event) {
     const result = evaluateValue(item.value, state);
     if (!result.ok) return errorState(state, result.message, event.line);
     next.vars[item.name] = result.value;
-    if (item.name === "energy") next.energy = Number(result.value) || 0;
+    if (item.name === (level.worldRules?.chargeMemory || "energy")) next.energy = Number(result.value) || 0;
     next.memoryKey = item.name;
+    next.dataToken = null;
+    next.readName = "";
+    next.readValue = null;
+    next.comparison = null;
     next.event = "WRITE  " + item.name + " = " + result.value;
     return next;
   }
@@ -210,8 +261,12 @@ function applyEvent(level, state, event) {
     const result = evaluateValue(item.value, state);
     if (!result.ok) return errorState(state, "Update failed. " + result.message, event.line);
     next.vars[item.name] = result.value;
-    if (item.name === "energy") next.energy = Number(result.value) || 0;
+    if (item.name === (level.worldRules?.chargeMemory || "energy")) next.energy = Number(result.value) || 0;
     next.memoryKey = item.name;
+    next.dataToken = null;
+    next.readName = "";
+    next.readValue = null;
+    next.comparison = null;
     next.event = "UPDATE  " + item.name + " = " + result.value;
     return next;
   }
@@ -219,19 +274,23 @@ function applyEvent(level, state, event) {
     if (!Object.prototype.hasOwnProperty.call(state.vars, item.name)) return errorState(state, "READ found empty memory. Write before read.", event.line);
     next.readName = item.name;
     next.readValue = state.vars[item.name];
+    next.dataToken = { name: item.name, value: state.vars[item.name] };
     next.memoryKey = item.name;
-    next.event = "READ  " + item.name + " → " + next.readValue;
+    next.event = "READ  " + item.name + " → token " + next.readValue;
     return next;
   }
   if (item.type === "branch") {
-    if (!state.readName) return errorState(state, "Choice read an empty value. Move READ above BRANCH.", event.line);
+    if (!state.dataToken) return errorState(state, "The gate has no data token. Read a value before choosing.", event.line);
     const left = evaluateValue(item.left, state);
     const right = evaluateValue(item.right, state);
     if (!left.ok || !right.ok) return errorState(state, "Choice could not read both sides.", event.line);
+    if (item.left?.type === "memory" && state.dataToken.name !== item.left.name) return errorState(state, "The gate received a different data token.", event.line);
     const passed = compareValues(left.value, item.operator, right.value);
     next.path = passed ? item.pass : item.fail;
     next.gateBranch = passed ? "accept" : "reject";
     next.gateOpen = passed;
+    next.dataToken = null;
+    next.comparison = { left: left.value, operator: item.operator, right: right.value, result: passed, path: next.path };
     next.event = "BRANCH  " + String(left.value) + " " + item.operator + " " + String(right.value) + (passed ? "  TRUE → " : "  FALSE → ") + next.path;
     return next;
   }
@@ -241,8 +300,8 @@ function applyEvent(level, state, event) {
       next.event = "PATH  " + state.path;
       return next;
     }
-    if (level.id === 1 && state.energy < 3) return errorState(state, "Signal has no charge. Charge before deliver.", event.line);
-    if (level.id === 2 && state.carried !== "signal") return errorState(state, "Nothing carried. Pickup before deliver.", event.line);
+    const requirementError = checkRequirements(level, state, actionRequirements(level, item));
+    if (requirementError) return errorState(state, requirementError, event.line);
     next.delivered = true;
     next.signalSent = true;
     next.event = "DELIVER  relay received";
@@ -258,7 +317,7 @@ export class Runtime {
     this.onFinish = onFinish;
     this.program = normalizeProgram(level, program);
     const validation = validateProgram(level, this.program);
-    if (!validation.ok) throw new TypeError("Invalid program: " + validation.message);
+    if (!validation.ok) throw new TypeError(`Invalid program${validation.line ? ` at line ${validation.line}` : ""}: ${validation.message}`);
     this.executionProgram = this.program;
     this.events = [];
     this.steps = this.events;
@@ -462,10 +521,7 @@ export class Runtime {
       ...this.state,
       anim: { from: this.task.from, to: this.task.to, progress: eased },
     };
-    this.state.unit = {
-      x: this.task.from.x + (this.task.to.x - this.task.from.x) * eased,
-      y: this.task.from.y + (this.task.to.y - this.task.from.y) * eased,
-    };
+    this.state.unit = pointOnEdge(edgeControlPoints(this.task.from, this.task.to), eased);
     if (progress >= 1) this.completeEvent();
     this.notify();
     if (this.state.phase === "running" || this.state.phase === "demo") this.frame = this.requestFrame((next) => this.tick(next));
@@ -478,6 +534,7 @@ export class Runtime {
     const to = { x: node.x, y: node.y };
     this.task = { event, from, to, elapsed: 0, duration: event.duration || 240 };
     this.state = applyEvent(this.level, this.state, event);
+    this.state = { ...this.state, activeEdge: { from: this.state.unitNode, to: node.id } };
     if (this.state.phase === "error") {
       this.stopLoop();
       this.task = null;
@@ -496,6 +553,8 @@ export class Runtime {
       unitNode: node.id,
       unit: { x: node.x, y: node.y },
       anim: null,
+      activeEdge: null,
+      mood: "idle",
       eventCursor: this.state.eventCursor + 1,
       pc: this.state.eventCursor + 1,
     };

@@ -9,6 +9,14 @@
   </head>
   <body>
     <div id="app" class="app-shell" data-app-ready="false">
+      <section id="introSequence" class="intro-sequence" hidden aria-label="Unit-0 opening scene">
+        <canvas id="introCanvas" aria-hidden="true"></canvas>
+        <div class="intro-copy">
+          <div id="introCaption" class="intro-caption">夜里，机械城停止呼吸。</div>
+          <div id="introSignal" class="intro-signal" aria-live="polite"></div>
+        </div>
+        <button id="introButton" class="intro-button" type="button">进入 Station Zero →</button>
+      </section>
       <header class="topbar">
         <div class="brand-lockup">
           <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -25,7 +33,7 @@
           <div class="panel-topline">
             <div>
               <div class="eyebrow" id="zoneLabel">STATION ZERO</div>
-              <h1 id="levelTitle">Wake Signal</h1>
+            <h1 id="levelTitle" tabindex="-1">Wake Signal</h1>
             </div>
             <div class="level-readout"><span id="levelNumber">01</span><span class="slash">/</span><span>08</span></div>
           </div>
@@ -40,10 +48,11 @@
           </aside>
           <div class="canvas-wrap">
             <canvas id="worldCanvas" aria-label="机械小镇地图"></canvas>
+            <div id="sceneCaption" class="scene-caption" aria-live="polite"></div>
             <div class="canvas-hud hud-left"><span class="hud-key">任务</span><span id="goalText">Wake the signal.</span></div>
             <div class="canvas-hud hud-right"><span class="hud-key">现在</span><span id="eventText">Awaiting input.</span></div>
           </div>
-          <div id="worldMirror" class="world-mirror" data-world-mirror aria-live="polite" data-unit="dock" data-memory="empty" data-read="none" data-gate="closed" data-path="none" data-error="" data-success="" data-phase="idle" data-event-cursor="0">Unit-0 · 小屋 · 记忆 — · 读到 none · 路径 无</div>
+          <div id="worldMirror" class="world-mirror" data-world-mirror aria-live="polite" data-unit="dock" data-memory="empty" data-read="none" data-gate="closed" data-path="none" data-comparison="none" data-mood="idle" data-error="" data-success="" data-phase="idle" data-event-cursor="0">Unit-0 · 小屋 · 记忆 — · 读到 none · 路径 无</div>
           <div class="world-legend">
             <span><i class="legend-swatch cyan"></i>走路</span>
             <span><i class="legend-swatch amber"></i>记忆</span>
@@ -85,7 +94,7 @@
       </footer>
 
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
-      <div class="level-card hidden" id="levelCard" role="dialog" aria-live="polite">
+      <div class="level-card hidden" id="levelCard" role="dialog" aria-modal="true" aria-labelledby="cardTitle" aria-live="polite">
         <div class="card-kicker" id="cardKicker">SIGNAL RESTORED</div>
         <h2 id="cardTitle">太好了！</h2>
         <p id="cardText">The rail remembers its route.</p>

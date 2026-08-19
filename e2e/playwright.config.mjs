@@ -7,6 +7,7 @@ const e2eRoot = fileURLToPath(new URL("./", import.meta.url));
 export default defineConfig({
   testDir: e2eRoot,
   timeout: 15_000,
+  workers: 1,
   expect: { timeout: 5_000 },
   fullyParallel: false,
   reporter: "line",

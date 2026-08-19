@@ -77,13 +77,15 @@ h1 { margin-top: 7px; color: var(--ink); font-size: clamp(27px, 3.4vw, 43px); fo
 .nudge-dismiss { flex: 0 0 auto; min-height: 44px; padding: 0 10px; color: var(--ink-soft); background: transparent; border: 0; border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: 750; }
 .nudge-dismiss:hover, .nudge-dismiss:focus-visible { color: var(--coral-deep); background: rgba(255, 255, 255, .72); outline: 3px solid rgba(238, 141, 120, .2); outline-offset: 2px; }
 
-.canvas-wrap { position: relative; min-height: 448px; overflow: hidden; background: var(--sky); border-radius: 28px; box-shadow: var(--shadow); }
+.canvas-wrap { position: relative; min-height: 448px; overflow: hidden; background: #172c4b; border-radius: 28px; box-shadow: var(--shadow); }
 #worldCanvas { display: block; width: 100%; height: 448px; }
 .canvas-hud { position: absolute; top: 15px; display: flex; max-width: 44%; flex-direction: column; gap: 3px; padding: 8px 11px; color: var(--ink); background: rgba(255, 252, 239, .78); border-radius: 14px; box-shadow: 0 5px 13px rgba(87, 107, 96, .1); font-size: 11px; font-weight: 700; }
 .hud-left { left: 15px; }
-.hud-right { right: 15px; align-items: flex-end; text-align: right; }
+.hud-right { display: none; right: 15px; align-items: flex-end; text-align: right; }
 .hud-key { color: var(--coral-deep); font-size: 9px; font-weight: 850; letter-spacing: .12em; }
-.world-mirror { min-height: 30px; margin-top: 11px; overflow: hidden; padding: 8px 13px; color: var(--ink-soft); background: rgba(255, 252, 241, .8); border-radius: 15px; box-shadow: 0 4px 11px rgba(87, 107, 96, .07); font: 10px/1.25 "SFMono-Regular", Consolas, monospace; letter-spacing: .03em; white-space: nowrap; text-overflow: ellipsis; }
+.scene-caption { position: absolute; bottom: 15px; left: 50%; z-index: 2; width: min(88%, 430px); padding: 9px 14px; color: #fff5cb; background: rgba(10, 18, 35, .72); border: 1px solid rgba(255, 235, 169, .25); border-radius: 15px; opacity: 0; pointer-events: none; transform: translate(-50%, 8px); transition: opacity .25s, transform .25s; font-size: 11px; text-align: center; }
+.scene-caption.visible { opacity: 1; transform: translate(-50%, 0); }
+.world-mirror { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .world-mirror[data-error="true"] { color: #a95450; background: #ffe3d8; }
 .world-mirror[data-success="true"] { color: #34745f; background: #dff4dd; }
 .world-legend { gap: 13px; flex-wrap: wrap; padding: 12px 4px 0; color: var(--ink-faint); font-size: 9px; font-weight: 750; letter-spacing: .08em; }
@@ -161,6 +163,15 @@ kbd { padding: 3px 6px; color: var(--ink-soft); background: #fff; border: 1px so
 .level-card h2 { margin-top: 11px; color: var(--ink); font-size: 30px; letter-spacing: -.04em; }
 .level-card p { margin-top: 9px; color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
 .card-button { margin-top: 22px; }
+
+.intro-sequence { position: fixed; inset: 0; z-index: 50; overflow: hidden; background: #111c35; }
+.intro-sequence[hidden] { display: none; }
+.intro-sequence canvas { display: block; width: 100%; height: 100%; }
+.intro-copy { position: absolute; top: 15%; left: 50%; width: min(88%, 720px); color: #fff5cb; text-align: center; transform: translateX(-50%); }
+.intro-caption { min-height: 28px; font-size: clamp(17px, 2.5vw, 26px); font-weight: 750; letter-spacing: .05em; text-shadow: 0 2px 16px rgba(0, 0, 0, .35); }
+.intro-signal { min-height: 34px; margin-top: 14px; color: var(--sun); font: 850 clamp(15px, 2.2vw, 24px)/1.4 "SFMono-Regular", Consolas, monospace; letter-spacing: .12em; text-shadow: 0 0 18px rgba(255, 211, 110, .65); }
+.intro-button { position: absolute; right: 6vw; bottom: 6vh; min-height: 48px; padding: 0 20px; color: #fffaf0; background: var(--coral); border: 0; border-radius: 16px; box-shadow: 0 5px 0 rgba(0, 0, 0, .18); cursor: pointer; font-size: 12px; font-weight: 850; letter-spacing: .08em; }
+.intro-button:hover, .intro-button:focus-visible { background: var(--coral-deep); outline: 3px solid rgba(255, 235, 169, .5); outline-offset: 3px; }
 
 @keyframes bob { 50% { transform: translateY(-2px); } }
 @keyframes gentle-pulse { 0%, 100% { box-shadow: 0 5px 0 rgba(190, 100, 88, .18); } 50% { box-shadow: 0 6px 0 rgba(190, 100, 88, .18), 0 0 0 7px rgba(238, 141, 120, .13); } }

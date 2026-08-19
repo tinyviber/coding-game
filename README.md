@@ -34,8 +34,10 @@ npm test            # check + legacy + unit
 ## 实现边界
 
 - `src/levels.js`：8 个数据驱动关卡、typed instruction、ValueExpr、解法、不变量、失败样例。
-- `src/runtime.js`：严格校验、不可变程序快照、确定性 GameEvents、事件游标、演示隔离、Run/Pause/Step/Reset。
-- `src/world.js`：Canvas 机械城市 + `worldMirror` DOM 数据镜像，便于无障碍和 smoke test 读取 Unit-0、Memory、Read、Gate、Path、Error、Success。
+- `src/runtime.js`：严格校验、不可变程序快照、稳定 instruction ID、数据 token、确定性 GameEvents、事件游标、演示隔离、Run/Pause/Step/Reset。
+- `src/world.js`：Canvas 夜间机械城市 + Memory/Read/Gate/Unit-0 视觉反馈；`worldMirror` 保留为隐藏的无障碍 DOM 数据镜像。
+- `src/intro.js`：可跳过的开场过场；首次遇到 Flow、Memory、Choice 时播放世界内短过场，不展示当前谜题答案。
+- `src/geometry.js`：轨道、Unit-0 与 active pulse 共用 Bézier 轨迹几何。
 - 不执行任意 Python；不使用 `eval` 或 `Function`。编辑器只开放受控数字、符号、路径和行顺序。
 
-当前垂直切片实现 PRD 中最小可玩范围：Flow、Memory、Choice，含 Station Zero、Memory Depot、Central Relay 故事推进。Cycle、Machine、Collection 留待后续区域。
+当前垂直切片实现 PRD 中最小可玩范围：Flow、Memory、Choice，含夜→黎明的 Station Zero、Memory Depot、Central Relay 故事推进。正常流程不自动播放正确答案；Cycle、Machine、Collection 留待后续区域。

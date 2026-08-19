@@ -140,3 +140,13 @@ test("runtime rejects event expansion above 64 and malformed ValueExpr", () => {
   }]);
   assert.throws(() => new Runtime(level, malformed), /value|expr|invalid|type/i);
 });
+
+test("runtime rejects undeclared branch paths and preserves the source line", () => {
+  const level = levels[5];
+  for (const invalidPath of ["missing-scene-path", "memory"]) {
+    const program = structuredClone(solutionOf(level));
+    const branch = program.instructions.find((item) => item.type === "branch");
+    branch.pass = invalidPath;
+    assert.throws(() => new Runtime(level, program), /line 3.*declared|declared.*line 3/i);
+  }
+});

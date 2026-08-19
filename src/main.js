@@ -2,6 +2,7 @@ import { cloneProgram, createProgram, getLevel, getLevels } from "./levels.js";
 import { Runtime } from "./runtime.js";
 import { CodePanel } from "./code-panel.js";
 import { WorldView } from "./world.js";
+import { IntroSequence } from "./intro.js";
 
 const levels = getLevels();
 const $ = (id) => document.getElementById(id);
@@ -32,6 +33,12 @@ const els = {
   app: $("app"),
   starterNudge: $("starterNudge"),
   dismissNudge: $("dismissNudge"),
+  intro: $("introSequence"),
+  introCanvas: $("introCanvas"),
+  introCaption: $("introCaption"),
+  introSignal: $("introSignal"),
+  introButton: $("introButton"),
+  sceneCaption: $("sceneCaption"),
   card: $("levelCard"),
   cardKicker: $("cardKicker"),
   cardTitle: $("cardTitle"),
@@ -46,10 +53,10 @@ let displayProgram = program;
 let runtime;
 let lastState;
 let toastTimer;
-let demoTimer;
-let demoGeneration = 0;
 const NUDGE_STORAGE_KEY = "unit0-starter-nudge-dismissed";
 let nudgeDismissed = readNudgeDismissed();
+const seenLaws = new Set();
+const hintIndexes = new Map();
 
 function storageCandidates() {
   const stores = [];
@@ -78,8 +85,8 @@ function setNudge(stage) {
   els.starterNudge.querySelector(".nudge-illustration").textContent = stage === "try" ? "🛠️" : "👀";
   els.starterNudge.querySelector(".nudge-copy strong").textContent = stage === "try" ? "跟我做" : "先看一遍";
   els.starterNudge.querySelector(".nudge-message").textContent = stage === "try"
-    ? "跟我做：① 找到 charge ② 点旁边 ↑ ③ RUN"
-    : "先看我走一遍；先不用操作。";
+    ? "观察节点，再让 Unit-0 自己试一次。"
+    : "Unit-0 刚醒。先看看哪一处还在发光。";
   els.app?.setAttribute("data-nudge-stage", visible ? stage : "hidden");
   updateNudgeTargets();
 }
@@ -107,6 +114,9 @@ function hideNudge() {
 }
 
 const world = new WorldView(els.canvas, els.mirror);
+const intro = new IntroSequence(els.intro, els.introCanvas, els.introCaption, els.introSignal, els.introButton, () => {
+  els.app?.setAttribute("data-intro-complete", "true");
+}, els.run);
 const code = new CodePanel(els.lines, (nextProgram) => {
   if (!runtime?.canEdit()) return;
   const previousProgram = program;
@@ -124,11 +134,11 @@ const code = new CodePanel(els.lines, (nextProgram) => {
 });
 
 function showLevel(index) {
-  cancelPendingDemo();
   els.app?.setAttribute("data-app-ready", "false");
   levelIndex = index;
   level = getLevel(index);
   setNudge(index === 0 ? "observe" : "hidden");
+  hintIndexes.set(level.id, 0);
   program = createProgram(level);
   displayProgram = program;
   runtime?.stopLoop();
@@ -138,33 +148,23 @@ function showLevel(index) {
   els.story.textContent = level.story;
   els.goal.textContent = level.goal;
   els.levelNumber.textContent = String(level.id).padStart(2, "0");
-  els.help.textContent = level.help;
+  els.help.textContent = level.hintSteps?.[0] || level.help;
   els.next.classList.remove("visible");
   closeCard();
   render(runtime.state);
-  const generation = demoGeneration;
-  demoTimer = setTimeout(() => {
-    demoTimer = null;
-    if (generation !== demoGeneration || runtime.state.phase !== "idle") return;
-    displayProgram = level.demoProgram;
-    runtime.demo(level.demoProgram, () => {
-      if (generation !== demoGeneration || runtime.state.phase !== "idle") return;
-      displayProgram = program;
-      setNudge("try");
-      render(runtime.state);
-      els.app?.setAttribute("data-app-ready", "true");
-    });
-  }, 220);
-}
-
-function cancelPendingDemo() {
-  clearTimeout(demoTimer);
-  demoTimer = null;
-  demoGeneration += 1;
+  els.app?.setAttribute("data-app-ready", "true");
+  if (level.law && !seenLaws.has(level.law)) {
+    seenLaws.add(level.law);
+    world.playBeat(level, level.lawBeat);
+    if (els.sceneCaption && level.lawBeat) {
+      els.sceneCaption.textContent = level.lawBeat.caption;
+      els.sceneCaption.classList.add("visible");
+      setTimeout(() => els.sceneCaption?.classList.remove("visible"), 2600);
+    }
+  }
 }
 
 function resetLevel() {
-  cancelPendingDemo();
   closeCard();
   runtime.reset();
 }
@@ -208,12 +208,15 @@ function handleFinish(result) {
     showToast(result.text || "Program stopped. Reset and try again.");
     return;
   }
+  els.toast.classList.remove("show");
+  els.toast.textContent = "";
   els.next.classList.add("visible");
   els.cardKicker.textContent = levelIndex === levels.length - 1 ? "CITY SIGNAL RESTORED" : "SIGNAL RESTORED";
   els.cardTitle.textContent = level.successTitle;
   els.cardText.textContent = level.successText;
   els.cardNext.textContent = levelIndex === levels.length - 1 ? "再修一次  ↺" : "继续  →";
   els.card.classList.remove("hidden");
+  els.cardNext.focus();
 }
 
 function closeCard() {
@@ -223,6 +226,7 @@ function closeCard() {
 function nextLevel() {
   if (levelIndex >= levels.length - 1) showLevel(0);
   else showLevel(levelIndex + 1);
+  els.title.focus();
 }
 
 function showToast(message) {
@@ -236,7 +240,13 @@ els.run.addEventListener("click", () => { hideNudge(); runtime.run(); });
 els.pause.addEventListener("click", () => runtime.pause());
 els.step.addEventListener("click", () => { hideNudge(); runtime.stepOnce(); });
 els.reset.addEventListener("click", resetLevel);
-els.hint.addEventListener("click", () => showToast(level.help));
+els.hint.addEventListener("click", () => {
+  const steps = level.hintSteps || [level.help];
+  const nextIndex = Math.min((hintIndexes.get(level.id) || 0) + 1, steps.length - 1);
+  hintIndexes.set(level.id, nextIndex);
+  els.help.textContent = steps[nextIndex];
+  showToast(steps[nextIndex]);
+});
 els.next.addEventListener("click", nextLevel);
 els.cardNext.addEventListener("click", nextLevel);
 els.dismissNudge?.addEventListener("click", hideNudge);
@@ -254,3 +264,4 @@ window.addEventListener("keydown", (event) => {
 });
 
 showLevel(0);
+if (!intro.show()) els.app?.setAttribute("data-intro-complete", "true");

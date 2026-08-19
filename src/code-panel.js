@@ -40,6 +40,7 @@ export class CodePanel {
     row.className = "code-line";
     row.dataset.line = String(line.line);
     row.dataset.instruction = line.instructionType || "";
+    row.dataset.instructionId = line.instructionId || "";
     if (this.state.activeLine === line.line && ["demo", "running", "paused"].includes(this.state.phase)) row.classList.add("current");
     if (this.state.activeLine > line.line && !["idle", "demo"].includes(this.state.phase)) row.classList.add("completed");
 
