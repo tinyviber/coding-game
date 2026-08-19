@@ -52,20 +52,18 @@ test("canonical content exposes eight data-driven levels", () => {
     assert.ok(level.goal, `level ${level.id} needs goal`);
     assert.ok(level.hint ?? level.help, `level ${level.id} needs hint`);
     assert.ok(level.starterProgram, `level ${level.id} needs starterProgram`);
-    assert.ok(level.demoProgram, `level ${level.id} needs demoProgram`);
     assert.ok(level.solution, `level ${level.id} needs solution`);
     assert.ok(Array.isArray(level.editableSlots), `level ${level.id} needs editableSlots`);
     assert.ok(level.successInvariant, `level ${level.id} needs successInvariant`);
     assert.ok(Array.isArray(level.failureCases) && level.failureCases.length > 0, `level ${level.id} needs failureCases`);
     assertProgramShape(starterOf(level), `level ${level.id} starterProgram`);
-    assertProgramShape(level.demoProgram, `level ${level.id} demoProgram`);
     assertProgramShape(solutionOf(level), `level ${level.id} solution`);
     assert.ok(level.editableSlots.every((slot) => slotKind(slot)), `level ${level.id} has unnamed editable slot`);
   }
 });
 
 test("programs use only typed instructions and typed value expressions", () => {
-  const allPrograms = levels.flatMap((level) => [starterOf(level), level.demoProgram, solutionOf(level)]);
+  const allPrograms = levels.flatMap((level) => [starterOf(level), solutionOf(level)]);
   const expressionTypes = new Set();
   for (const program of allPrograms) {
     for (const instruction of instructionsOf(program)) {
@@ -108,11 +106,11 @@ test("each level has editable progression and non-solved starter", () => {
   }
 });
 
-test("final story carries exact dawn instruction and ending", () => {
+test("final story carries the promise and Chinese ending", () => {
   const final = levels.at(-1);
   const story = `${final.story} ${final.successTitle ?? ""} ${final.successText ?? ""} ${final.ending ?? ""}`;
   assert.match(story, /MAKE THE SUN RISE AGAIN/);
-  assert.match(story, /SUN RISES AGAIN/i);
+  assert.match(story, /太阳重新升起/);
 });
 
 test("canonical runtime validates before execution and rejects unsafe instructions", () => {

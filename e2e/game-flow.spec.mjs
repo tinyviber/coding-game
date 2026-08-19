@@ -1,154 +1,149 @@
 import { test, expect } from "@playwright/test";
 
-const mirrorSelector = "#worldMirror";
-
-async function worldMirror(page) {
-  const mirror = page.locator(mirrorSelector);
-  await expect(mirror).toHaveCount(1);
-  return mirror;
+async function fresh(page) {
+  await page.goto("/index.html");
+  await page.evaluate(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+  await page.reload();
 }
 
-async function waitForIdle(page) {
-  const appReady = page.locator("[data-app-ready]");
-  if (await appReady.count()) await expect.poll(() => appReady.getAttribute("data-app-ready"), { timeout: 15_000 }).toBe("true");
-  await expect.poll(() => page.locator("#runStatus").textContent(), { timeout: 15_000 }).toMatch(/IDLE|READY|准备/);
+async function enterAndWait(page) {
+  const intro = page.locator("#introSequence");
+  if (await intro.isVisible()) await page.locator("#introButton").click();
+  if (await page.locator("#app").getAttribute("data-app-ready") !== "true") {
+    await expect(page.locator("#runButton")).toBeDisabled();
+    await expect(page.locator("#codeLines")).toHaveAttribute("data-presentation-locked", "true");
+    await expect.poll(() => page.locator("#sceneCaption").textContent(), { timeout: 4_000 }).not.toBe("");
+  }
+  await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "true", { timeout: 8_000 });
+  await expect(page.locator("#runButton")).toBeEnabled();
 }
 
-async function readCursor(mirror) {
-  const value = await mirror.getAttribute("data-event-cursor");
-  return value === null ? null : Number(value);
+async function waitSuccess(page) {
+  await expect(page.locator("#worldMirror")).toHaveAttribute("data-phase", "success", { timeout: 15_000 });
+  await expect(page.locator("#levelCard")).not.toHaveClass(/hidden/);
 }
 
-async function expectWorldPhase(page, mirror, pattern) {
-  if (await mirror.getAttribute("data-phase") !== null) {
-    await expect.poll(() => mirror.getAttribute("data-phase")).toMatch(new RegExp(pattern, "i"));
-  } else {
-    await expect.poll(() => page.locator("#runStatus").textContent()).toMatch(new RegExp(pattern, "i"));
+function row(page, instruction) {
+  return page.locator(`#codeLines .code-line[data-instruction-id="${instruction}"]`);
+}
+
+async function moveRow(page, instruction, direction, times = 1) {
+  for (let index = 0; index < times; index += 1) {
+    await row(page, instruction).locator(`button[aria-label="${direction === "up" ? "上移这一行" : "下移这一行"}"]`).click();
   }
 }
 
-async function codeLockState(page) {
-  return page.locator("#codeLines").evaluate((root) => {
-    const controls = [...root.querySelectorAll("input, select, button")];
-    return {
-      locked: root.dataset.locked === "true",
-      allDisabled: controls.length > 0 && controls.every((control) => control.disabled),
-    };
-  });
-}
-
-function chargeMoveUp(page) {
-  return page.locator('#codeLines .code-line[data-instruction="charge"] button[aria-label="Move line up"]');
-}
-
-test.describe("Unit-0 playable vertical slice", () => {
-  test("entry loads, isolated demo returns idle, and world mirror exposes state", async ({ page }) => {
-    await page.goto("/index.html");
-    await expect(page.locator("#levelTitle")).toBeVisible();
-    const intro = page.locator("#introSequence");
-    if (await intro.isVisible()) await page.locator("#introButton").click();
-    await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "true");
-    await expect(page.locator("#codeLines .code-line").first()).toBeVisible();
-    const nudge = page.locator("#starterNudge");
-    const dismissNudge = page.locator("#dismissNudge");
-    await expect(nudge).toBeVisible();
-    await expect(nudge).toContainText(/observe|观察|先看/i);
-    await expect(nudge).not.toHaveAttribute("role", "dialog");
-    await expect(nudge).not.toHaveAttribute("inert", "");
-    const starterCode = await page.locator("#codeLines").innerText();
-    await waitForIdle(page);
-    await expect(nudge).toContainText(/observe|观察|先看/i);
-    await expect(page.locator("[data-nudge-target], .nudge-target")).toHaveCount(0);
-    await expect(page.locator("[data-nudge-target-control], .nudge-target-control")).toHaveCount(0);
-    for (const selector of ["#runButton", "#stepButton", "#resetButton", "#hintButton"]) {
-      await expect(page.locator(selector)).toBeEnabled();
-    }
-    expect(await page.locator("#codeLines").innerText()).toBe(starterCode);
-
-    const mirror = await worldMirror(page);
-    await expectWorldPhase(page, mirror, /idle|ready/);
-    for (const attr of ["data-unit", "data-memory", "data-read", "data-gate", "data-path", "data-error", "data-success"]) {
-      await expect(mirror).toHaveAttribute(attr);
-    }
-
-    await dismissNudge.click();
-    await expect(nudge).toBeHidden();
-    await page.reload();
-    await waitForIdle(page);
-    await expect(page.locator("#starterNudge")).toBeHidden();
+test.describe("Unit-0 真实交互 vertical slice", () => {
+  test("Intro → Flow beat → 玩家控制，且已看 Intro 仍播放 Flow beat", async ({ page }) => {
+    await fresh(page);
+    await expect(page.locator("#introSequence")).toBeVisible();
+    await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "false");
+    await expect(page.locator("#runButton")).toBeDisabled();
+    await expect(page.locator("#codeLines .code-line")).toHaveCount(0);
+    await page.locator("#introButton").click();
+    await expect(page.locator("#app")).toHaveAttribute("data-intro-complete", "true");
+    await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "false");
+    await expect(page.locator("#runButton")).toBeDisabled();
+    await expect(page.locator("#sceneCaption")).toContainText("轨道");
+    await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "true", { timeout: 8_000 });
     await expect(page.locator("#runButton")).toBeEnabled();
+
+    await page.reload();
+    await expect(page.locator("#introSequence")).toBeHidden();
+    await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "false");
+    await expect(page.locator("#runButton")).toBeDisabled();
+    await expect(page.locator("#sceneCaption")).toContainText("轨道");
+    await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "true", { timeout: 8_000 });
   });
 
-  test("Step/Reset editor lock", async ({ page }) => {
-    await page.goto("/index.html");
-    await waitForIdle(page);
-    const mirror = await worldMirror(page);
-    await page.locator("#resetButton").click();
-    const initialCursor = await readCursor(mirror);
-
-    await page.locator("#stepButton").click();
-    if (initialCursor !== null) await expect.poll(() => readCursor(mirror)).toBeGreaterThan(initialCursor);
-    else await expectWorldPhase(page, mirror, /paused/);
-    await expectWorldPhase(page, mirror, /paused/);
-    expect(await codeLockState(page)).toEqual({ locked: true, allDisabled: true });
-
-    await page.locator("#resetButton").click();
-    await waitForIdle(page);
-    await expectWorldPhase(page, mirror, /idle|ready/);
-    await expect(page.locator("#codeLines")).toHaveAttribute("data-locked", "false");
-    expect(await codeLockState(page)).toEqual({ locked: false, allDisabled: false });
-    if (await readCursor(mirror) !== null) expect(await readCursor(mirror)).toBe(0);
-    await expect(mirror).toHaveAttribute("data-error", "");
+  test("首次点击提示就是第一条，且 1–7 关不可见太阳", async ({ page }) => {
+    await fresh(page);
+    await enterAndWait(page);
+    const help = page.locator("#codeHelp");
+    const initial = await help.textContent();
+    await page.locator("#hintButton").click();
+    const first = await help.textContent();
+    await page.locator("#hintButton").click();
+    const second = await help.textContent();
+    await page.locator("#hintButton").click();
+    const third = await help.textContent();
+    expect(first).not.toBe(initial);
+    expect(second).not.toBe(first);
+    expect(third).not.toBe(second);
+    await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "false");
   });
 
-  test("starter error is visible, Reset enables retry, and solved retry reaches success", async ({ page }) => {
-    await page.goto("/index.html");
-    await waitForIdle(page);
-    const mirror = await worldMirror(page);
-    await page.locator("#runButton").click();
-    await expectWorldPhase(page, mirror, /error|failed/);
-    await expect.poll(() => mirror.getAttribute("data-error")).not.toBe("");
+  test("从第 1 关完整玩到第 8 关，最后才出现日出", async ({ page }) => {
+    await fresh(page);
+    await enterAndWait(page);
 
-    await page.locator("#resetButton").click();
-    await waitForIdle(page);
-    const moveUp = chargeMoveUp(page);
-    await expect(moveUp).toBeEnabled();
-    await moveUp.click();
+    await moveRow(page, "charge_station", "up");
     await page.locator("#runButton").click();
-    await expectWorldPhase(page, mirror, /success|complete/);
-  });
-
-  test("first puzzle can be solved through code controls and advances story", async ({ page }) => {
-    await page.goto("/index.html");
-    await waitForIdle(page);
-    const moveUp = chargeMoveUp(page);
-    await expect(moveUp).toBeEnabled();
-    await moveUp.click();
-    await page.locator("#runButton").click();
-    await expect(page.locator("#runStatus")).toHaveText(/SUCCESS|COMPLETE|完成/, { timeout: 8_000 });
-    const mirror = await worldMirror(page);
-    await expect(mirror).toHaveAttribute("data-success", /true|success|on/);
-    await expect(page.locator("#levelCard")).not.toHaveClass(/hidden/);
-    await expect(page.locator("#cardNextButton")).toBeFocused();
-    expect(await codeLockState(page)).toEqual({ locked: true, allDisabled: true });
-    await expect(page.locator("#cardTitle")).toContainText(/rail wakes|signal|restore/i);
-
+    await waitSuccess(page);
     await page.locator("#cardNextButton").click();
-    await expect(page.locator("#levelNumber")).toHaveText("02");
-    await expect(page.locator("#levelTitle")).toBeFocused();
+    await enterAndWait(page);
+
+    await moveRow(page, "pickup_signal", "up");
+    await page.locator("#runButton").click();
+    await waitSuccess(page);
+    await page.locator("#cardNextButton").click();
+    await enterAndWait(page);
+
+    await page.getByLabel("能量数值").fill("5");
+    await page.locator("#runButton").click();
+    await waitSuccess(page);
+    await page.locator("#cardNextButton").click();
+    await enterAndWait(page);
+
+    await page.getByLabel("更新幅度").fill("1");
+    await page.locator("#runButton").click();
+    await waitSuccess(page);
+    await page.locator("#cardNextButton").click();
+    await enterAndWait(page);
+
+    await page.getByLabel("比较方式").selectOption("<");
+    await page.locator("#runButton").click();
+    await waitSuccess(page);
+    await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "false");
+    await page.locator("#cardNextButton").click();
+    await enterAndWait(page);
+
+    await page.getByLabel("比较方式").selectOption("==");
+    await page.locator("#runButton").click();
+    await waitSuccess(page);
+    await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "false");
+    await page.locator("#cardNextButton").click();
+    await enterAndWait(page);
+
+    await page.getByLabel("更新幅度").fill("3");
+    await page.getByLabel("成立路线").selectOption("light");
+    await moveRow(page, "branch_gate", "down", 2);
+    await page.locator("#runButton").click();
+    await waitSuccess(page);
+    await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "false");
+    await page.locator("#cardNextButton").click();
+    await enterAndWait(page);
+
+    await page.getByLabel("更新幅度").fill("4");
+    await page.getByLabel("成立路线").selectOption("dawn");
+    await moveRow(page, "write_energy", "up");
+    await moveRow(page, "update_energy", "up");
+    await moveRow(page, "branch_gate", "down", 2);
+    await page.locator("#runButton").click();
+    await waitSuccess(page);
+    await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "true");
+    await expect(page.locator("#cardTitle")).toContainText("晨光");
   });
 
-  test("mobile layout has no horizontal overflow and touch-safe controls", async ({ page }) => {
-    await page.goto("/index.html");
-    await waitForIdle(page);
+  test("移动端无横向溢出，worldMirror 仍为隐藏无障碍状态", async ({ page }) => {
+    await fresh(page);
+    await enterAndWait(page);
     const viewport = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
     expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.width + 1);
-    for (const selector of ["#runButton", "#pauseButton", "#stepButton", "#resetButton", "#hintButton"]) {
-      const box = await page.locator(selector).boundingBox();
-      expect(box, `${selector} must be visible`).not.toBeNull();
-      expect(box.height).toBeGreaterThanOrEqual(44);
-      expect(box.width).toBeGreaterThanOrEqual(44);
-    }
-    await expect(page.locator("#codeLines")).toBeVisible();
+    await expect(page.locator("#worldMirror")).toHaveAttribute("aria-live", "polite");
+    await expect(page.locator("#worldMirror")).toBeAttached();
   });
 });

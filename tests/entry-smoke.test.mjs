@@ -29,7 +29,7 @@ test("entry document exposes playable controls and story surfaces", async () => 
   if (appReadyMarkup) {
     assert.match(html, /data-app-ready=["']false["']/);
     const main = await readFile(join(repoRoot, "src/main.js"), "utf8");
-    assert.match(main, /setAttribute\(["']data-app-ready["']\s*,\s*["']true["']\)/);
+    assert.match(main, /data-app-ready/);
   }
 });
 

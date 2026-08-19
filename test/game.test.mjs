@@ -1,62 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getLevels, createProgram, cloneProgram } from "../src/levels.js";
+import { cloneProgram, getLevels } from "../src/levels.js";
 import { Runtime } from "../src/runtime.js";
 
-const solvedPrograms = [
-  { actionOrder: ["charge", "move", "signal"] },
-  { energy: 5 },
-  { energy: 7 },
-  { target: "blue", compare: "==" },
-  { compare: ">", threshold: 5 },
-  { actionOrder: ["write", "read", "gate", "send"], energy: 5, compare: ">", threshold: 3 },
-  { energy: 8, target: "blue", threshold: 4 },
-  { energy: 8, compare: ">", threshold: 5 },
-];
+const levels = getLevels();
 
-const solvedStates = [
-  {},
-  { vars: { energy: 5 } },
-  { readValue: 7 },
-  { gateBranch: "accept" },
-  { gateBranch: "accept" },
-  { gateBranch: "accept" },
-  { gateBranch: "accept" },
-  { gateBranch: "accept" },
-];
+function run(runtime) {
+  return runtime.runToEnd();
+}
 
-test("vertical slice exposes eight data-driven levels", () => {
-  const levels = getLevels();
-  assert.equal(levels.length, 8);
-  assert.deepEqual(levels.map((level) => level.id), [1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.ok(levels.every((level) => level.scene && level.code && level.steps && level.check));
+test("所有 solution 都能完成，starter 都会在真实世界规则上失败", async () => {
+  for (const level of levels) {
+    const solved = new Runtime(level, cloneProgram(level.solution));
+    assert.equal((await run(solved)).success, true, `level ${level.id} solution should succeed`);
+    const starter = new Runtime(level, cloneProgram(level.starterProgram));
+    assert.equal((await run(starter)).success, false, `level ${level.id} starter should fail`);
+  }
 });
 
-test("solved program configurations satisfy every level goal", () => {
-  getLevels().forEach((level, index) => {
-    const program = { ...createProgram(level), ...solvedPrograms[index] };
-    const result = level.check(program, solvedStates[index]);
-    assert.equal(result.ok, true, `level ${level.id} should accept solved config`);
-  });
-});
-
-test("default puzzle configurations are not already solved", () => {
-  getLevels().forEach((level) => {
-    const program = createProgram(level);
-    const result = level.check(program, { vars: {}, gateBranch: null, readValue: null });
-    assert.equal(result.ok, false, `level ${level.id} should require player input`);
-  });
-});
-
-test("runtime reaches success with solved first-level flow", async () => {
-  globalThis.requestAnimationFrame = (callback) => setTimeout(() => callback(performance.now() + 20), 0);
-  globalThis.cancelAnimationFrame = (handle) => clearTimeout(handle);
-  const level = getLevels()[0];
-  const program = cloneProgram(solvedPrograms[0]);
-  const result = await new Promise((resolve) => {
-    const runtime = new Runtime(level, program, undefined, resolve);
-    runtime.steps.forEach((item) => { item.duration = 1; });
-    runtime.run();
-  });
-  assert.equal(result.ok, true);
+test("Runtime events carry stable source identity and authored edges", () => {
+  for (const level of levels) {
+    const runtime = new Runtime(level, cloneProgram(level.solution));
+    const edges = new Set(level.scene.edges.map((edge) => edge.join("→")));
+    assert.ok(runtime.events.length > 0);
+    for (const event of runtime.events) {
+      assert.equal(typeof event.instructionId, "string");
+      assert.ok(Number.isInteger(event.sourceLine));
+      if (event.kind === "traverse") assert.ok(edges.has(`${event.from}→${event.to}`));
+    }
+  }
 });

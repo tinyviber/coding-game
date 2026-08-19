@@ -86,32 +86,40 @@ export class WorldView {
   updateMirror(state) {
     if (!this.mirror) return;
     const memory = Object.entries(state.vars || {}).map(([key, value]) => key + "=" + value).join(" ");
-    const placeNames = { dock: "小屋", pickup: "货物", charge: "充电站", exit: "信号台", memory: "记忆盒", reader: "阅读台", gate: "选择门", light: "亮路", dark: "暗路", open: "开放", reject: "拒绝", sun: "太阳" };
+    const placeNames = { dock: "小屋", pickup: "输入台", charge: "充电站", exit: "中继站", memory: "记忆盒", reader: "读取器", gate: "判断门", light: "亮路", dark: "暗路", dawn: "晨光路" };
     const unitName = placeNames[state.unitNode || "dock"] || state.unitNode || "小屋";
-    const pathName = placeNames[state.path || "none"] || state.path || "无";
+    const pathName = placeNames[state.path] || state.path || "无";
+    const activeEdge = state.activeEdge ? `${state.activeEdge.from}->${state.activeEdge.to}` : "";
+    const tokenPhase = state.tokenTransfer?.phase || state.tokenAnimation?.phase || (state.dataToken ? (state.anim ? "移动中" : "读取器") : state.comparison ? "判断门" : "无");
+    const sunVisible = this.lastLevel?.id === 8 && state.phase === "success";
     this.mirror.dataset.unit = state.unitNode || "dock";
-    this.mirror.dataset.memory = memory || "empty";
-    this.mirror.dataset.read = state.readValue === null || state.readValue === undefined ? "none" : String(state.readValue);
+    this.mirror.dataset.memory = memory || "无";
+    this.mirror.dataset.read = state.readValue === null || state.readValue === undefined ? "无" : String(state.readValue);
     this.mirror.dataset.gate = state.gateOpen ? "open" : "closed";
-    this.mirror.dataset.path = state.path || "none";
-    this.mirror.dataset.comparison = state.comparison ? `${state.comparison.left} ${state.comparison.operator} ${state.comparison.right}` : "none";
+    this.mirror.dataset.path = state.path || "无";
+    this.mirror.dataset.comparison = state.comparison ? `${state.comparison.left} ${state.comparison.operator} ${state.comparison.right}` : "无";
     this.mirror.dataset.mood = state.mood || "idle";
     this.mirror.dataset.error = state.phase === "error" ? "true" : "";
     this.mirror.dataset.success = state.phase === "success" ? "true" : "";
     this.mirror.dataset.phase = state.phase || "idle";
     this.mirror.dataset.eventCursor = String(state.eventCursor ?? 0);
+    this.mirror.dataset.activeEdge = activeEdge;
+    this.mirror.dataset.tokenPhase = tokenPhase;
+    this.mirror.dataset.sunVisible = String(sunVisible);
     const mirrorText = "Unit-0 · " + unitName
       + "  ·  记忆 " + (memory || "—")
       + "  ·  读到 " + this.mirror.dataset.read
       + "  ·  路径 " + pathName
-      + (this.mirror.dataset.comparison !== "none" ? "  ·  比较 " + this.mirror.dataset.comparison : "");
+      + (this.mirror.dataset.comparison !== "无" ? "  ·  比较 " + this.mirror.dataset.comparison : "")
+      + (activeEdge ? "  ·  轨道 " + activeEdge : "");
     if (this.mirror.textContent !== mirrorText) this.mirror.textContent = mirrorText;
   }
 
   point(node, w, h) { return { x: node.x * w, y: node.y * h }; }
 
   drawBackdrop(ctx, w, h, level, state) {
-    const progress = Math.max(0, Math.min(1, Number(level.dawnProgress || 0) + (state.phase === "success" ? 0.08 : 0)));
+    const sunVisible = Number(level.id) === 8 && state.phase === "success";
+    const progress = Math.max(0, Math.min(1, Number(level.dawnProgress || 0) + (sunVisible ? 0.08 : 0)));
     const gradient = ctx.createLinearGradient(0, 0, 0, h);
     const top = mixColor(palette.night, progress > 0.72 ? "#c87c83" : palette.nightMid, Math.min(1, progress * 1.65));
     const bottom = mixColor("#1a2944", progress > 0.52 ? "#f2c28f" : "#263d5d", Math.min(1, progress * 1.45));
@@ -136,15 +144,23 @@ export class WorldView {
         ctx.beginPath(); ctx.arc(x, y, i % 4 === 0 ? 1.8 : 1, 0, Math.PI * 2); ctx.fill();
       }
     }
-    if (progress >= 0.55) {
-      const sun = Math.min(1, (progress - 0.45) * 2.1);
-      ctx.globalAlpha = sun;
+    if (progress >= 0.4) {
+      const warmth = Math.min(1, (progress - 0.4) * 1.65);
+      ctx.save();
+      ctx.globalAlpha = 0.08 + warmth * 0.12;
+      ctx.fillStyle = progress >= 0.7 ? "#e7a16f" : "#9e82a6";
+      ctx.shadowColor = progress >= 0.7 ? "rgba(231, 161, 111, .42)" : "rgba(158, 130, 166, .34)";
+      ctx.shadowBlur = 28;
+      ctx.beginPath(); ctx.ellipse(w * .77, h * .69, w * .28, 18, 0, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    if (sunVisible) {
+      ctx.save();
       ctx.fillStyle = palette.sun;
-      ctx.shadowColor = "rgba(241, 174, 77, .38)";
-      ctx.shadowBlur = 18;
-      ctx.beginPath(); ctx.arc(w * (.84 - progress * .1), h * (.26 - progress * .12), Math.min(31, w * .065), 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 1;
+      ctx.shadowColor = "rgba(241, 174, 77, .7)";
+      ctx.shadowBlur = 24;
+      ctx.beginPath(); ctx.arc(w * .77, h * .67, Math.min(34, w * .07), 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
     ctx.fillStyle = progress > 0.55 ? "rgba(31, 51, 66, .6)" : "rgba(8, 16, 32, .62)";
     for (let i = 0; i < 9; i += 1) {
@@ -266,7 +282,7 @@ export class WorldView {
         ctx.fillText(compare, 0, -35);
         ctx.font = "900 10px system-ui";
         ctx.fillStyle = state.comparison.result ? palette.green : palette.rose;
-        ctx.fillText(state.comparison.result ? "TRUE" : "FALSE", 0, 40);
+        ctx.fillText(state.comparison.result ? "成立" : "不成立", 0, 40);
       } else ctx.fillText("?", 0, 5);
     } else if (node.type === "memory" || node.type === "reader") {
       ctx.roundRect(-12, -3, 24, 6, 3); ctx.fill();
@@ -276,7 +292,9 @@ export class WorldView {
       if (node.type === "reader") { ctx.beginPath(); ctx.moveTo(0, 11); ctx.lineTo(0, 17); ctx.stroke(); }
       const storedKey = state.memoryKey || Object.keys(state.vars || {})[0];
       const stored = node.type === "memory" && storedKey ? [storedKey, state.vars[storedKey]] : null;
-      const token = node.type === "reader" ? state.dataToken : stored;
+      const token = node.type === "reader"
+        ? (state.tokenTransfer?.phase === "reader-pending" ? state.dataToken : null)
+        : stored;
       if (token) {
         ctx.fillStyle = palette.ink;
         ctx.font = "900 10px system-ui";
@@ -313,9 +331,21 @@ export class WorldView {
   }
 
   drawDataToken(ctx, state, w, h) {
-    if (!state.dataToken || !state.anim) return;
-    const x = state.unit.x * w;
-    const y = state.unit.y * h - 25;
+    if (!state.dataToken) return;
+    let x = state.unit.x * w;
+    let y = state.unit.y * h;
+    const transfer = state.tokenAnimation;
+    if (transfer?.edge) {
+      const nodes = new Map((this.lastLevel?.scene?.nodes || []).map((node) => [node.id, node]));
+      const from = nodes.get(transfer.edge.from);
+      const to = nodes.get(transfer.edge.to);
+      if (from && to) {
+        const point = pointOnEdge(edgeControlPoints(this.point(from, w, h), this.point(to, w, h)), Number(transfer.progress) || 0);
+        x = point.x;
+        y = point.y;
+      }
+    }
+    y -= 25;
     ctx.save();
     ctx.fillStyle = "rgba(255, 239, 157, .95)";
     ctx.strokeStyle = palette.ink;
@@ -351,13 +381,13 @@ export class WorldView {
       ctx.fillStyle = "#ffe49a"; ctx.font = "900 17px system-ui"; ctx.textAlign = "center";
       ctx.fillText("5  >  3", gate.x, gate.y - 43);
       ctx.fillStyle = progress > .55 ? "#9ce0bd" : "#ffe49a";
-      ctx.font = "900 11px system-ui"; ctx.fillText(progress > .55 ? "TRUE → LIGHT" : "?", gate.x, gate.y + 43);
+      ctx.font = "900 11px system-ui"; ctx.fillText(progress > .55 ? "成立 → 亮路" : "？", gate.x, gate.y + 43);
     }
     if (beat.type === "flow") {
       const charge = point("charge");
       ctx.fillStyle = progress > .45 ? "#ffd36e" : "#ef9b8d";
       ctx.beginPath(); ctx.arc(charge.x, charge.y - 31, 8 + progress * 4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#fff5cb"; ctx.font = "900 10px system-ui"; ctx.fillText(progress > .45 ? "POWER" : "NO POWER", charge.x, charge.y - 50);
+      ctx.fillStyle = "#fff5cb"; ctx.font = "900 10px system-ui"; ctx.fillText(progress > .45 ? "有能量" : "没有能量", charge.x, charge.y - 50);
     }
     ctx.restore();
   }
@@ -391,11 +421,11 @@ export class WorldView {
     ctx.fillStyle = "rgba(239, 155, 141, .13)"; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = "#fff0e7"; ctx.strokeStyle = "rgba(202, 110, 99, .45)"; ctx.lineWidth = 2;
     ctx.roundRect(16, h - 53, w - 32, 34, 17); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#a95450"; ctx.font = "800 11px system-ui"; ctx.textAlign = "center"; ctx.fillText("Oops! 轻轻重置，再试一次", w / 2, h - 31);
+    ctx.fillStyle = "#a95450"; ctx.font = "800 11px system-ui"; ctx.textAlign = "center"; ctx.fillText("这里还不对，重置后再试一次", w / 2, h - 31);
     ctx.restore();
   }
 
-  playBeat(level, beat) {
+  playBeat(level, beat, onDone) {
     if (!beat) return;
     this.beat = { ...beat, started: now(), duration: beat.duration || 2200 };
     const beatRef = this.beat;
@@ -405,6 +435,7 @@ export class WorldView {
         this.beat = null;
         this.beatFrame = 0;
         this.render(level, this.lastState || {});
+        onDone?.();
         return;
       }
       this.render(level, this.lastState || {});
@@ -422,7 +453,7 @@ export class WorldView {
     ctx.fillStyle = "rgba(139, 207, 182, .12)"; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = "#e4f4dd"; ctx.strokeStyle = "rgba(78, 150, 117, .38)"; ctx.lineWidth = 2;
     ctx.roundRect(16, h - 53, w - 32, 34, 17); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#34745f"; ctx.font = "800 11px system-ui"; ctx.textAlign = "center"; ctx.fillText("太棒了！ SIGNAL RECEIVED", w / 2, h - 31);
+    ctx.fillStyle = "#34745f"; ctx.font = "800 11px system-ui"; ctx.textAlign = "center"; ctx.fillText("太棒了！中继站已收到信号", w / 2, h - 31);
     ctx.restore();
   }
 }

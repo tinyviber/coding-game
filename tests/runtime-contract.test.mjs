@@ -10,7 +10,6 @@ import {
   instructionsOf,
   pauseAfterRun,
   phaseOf,
-  runDemoToIdle,
   runToTerminal,
   setInstructions,
   stepOne,
@@ -46,20 +45,6 @@ test("all eight authored solutions reach success and starters produce visible fa
     assert.match(String(phaseOf(starter)), /error|failed/);
     const errorText = stateOf(starter)?.error ?? stateOf(starter)?.message ?? starterResult.text;
     assert.ok(String(errorText).length > 0, `level ${level.id} must explain failure`);
-  }
-});
-
-test("demo executes isolated demoProgram and returns idle without replacing starter", async () => {
-  for (const level of levels) {
-    const starter = starterOf(level);
-    const runtime = makeRuntime(level, starter);
-    await runDemoToIdle(runtime, level.demoProgram);
-    assert.match(String(phaseOf(runtime)), /idle|ready/);
-    assert.equal(cursorOf(runtime), 0);
-    assert.deepEqual(runtime.program ?? runtime.currentProgram, starter, `level ${level.id} demo must not replace starter`);
-    const state = stateOf(runtime) ?? {};
-    assert.deepEqual(state.vars ?? state.memory ?? {}, {});
-    assert.equal(state.error ?? "", "");
   }
 });
 
@@ -147,6 +132,16 @@ test("runtime rejects undeclared branch paths and preserves the source line", ()
     const program = structuredClone(solutionOf(level));
     const branch = program.instructions.find((item) => item.type === "branch");
     branch.pass = invalidPath;
-    assert.throws(() => new Runtime(level, program), /line 3.*declared|declared.*line 3/i);
+    assert.throws(() => new Runtime(level, program), /第 3 行.*声明|声明.*第 3 行|line 3.*declared|declared.*line 3/i);
+  }
+});
+
+test("expanded traversal events never invent a scene edge", () => {
+  for (const level of levels) {
+    const runtime = makeRuntime(level, solutionOf(level));
+    const authored = new Set(level.scene.edges.map((edge) => edge.join("→")));
+    for (const event of runtime.events.filter((item) => item.kind === "traverse")) {
+      assert.ok(authored.has(`${event.from}→${event.to}`), `level ${level.id} has an unauthored traversal`);
+    }
   }
 });

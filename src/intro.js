@@ -29,6 +29,7 @@ export class IntroSequence {
     this.started = clock();
     this.overlay.hidden = false;
     this.overlay.classList.add("active");
+    this.overlay.setAttribute("aria-busy", "true");
     this.button?.focus();
     this.tick();
     return true;
@@ -44,6 +45,7 @@ export class IntroSequence {
     try { globalThis.sessionStorage?.setItem("unit0-intro-seen", "1"); } catch {}
     this.overlay.classList.remove("active");
     this.overlay.hidden = true;
+    this.overlay.setAttribute("aria-busy", "false");
     this.onDone?.();
     this.focusTarget?.focus();
   }
@@ -67,9 +69,10 @@ export class IntroSequence {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const wake = Math.max(0, Math.min(1, (elapsed - 1.7) / 2));
     const signal = Math.max(0, Math.min(1, (elapsed - 3.5) / 1.2));
-    const sunrise = Math.max(0, Math.min(1, (elapsed - 5.2) / 1.8));
-    const top = `rgb(${17 + Math.round(180 * sunrise)}, ${27 + Math.round(105 * sunrise)}, ${52 + Math.round(60 * sunrise)})`;
-    const bottom = `rgb(${10 + Math.round(207 * sunrise)}, ${20 + Math.round(132 * sunrise)}, ${40 + Math.round(60 * sunrise)})`;
+    // Intro promises daylight; it must not reveal the payoff before level 8 succeeds.
+    const horizonGlow = Math.max(0, Math.min(1, (elapsed - 3.5) / 3.5));
+    const top = `rgb(${17 + Math.round(8 * horizonGlow)}, ${27 + Math.round(7 * horizonGlow)}, ${52 + Math.round(9 * horizonGlow)})`;
+    const bottom = `rgb(${10 + Math.round(24 * horizonGlow)}, ${20 + Math.round(16 * horizonGlow)}, ${40 + Math.round(13 * horizonGlow)})`;
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
     gradient.addColorStop(0, top); gradient.addColorStop(1, bottom);
     ctx.fillStyle = gradient; ctx.fillRect(0, 0, width, height);
@@ -77,7 +80,7 @@ export class IntroSequence {
     for (let i = 0; i < 28; i += 1) {
       const x = (i * 71) % width;
       const y = 20 + ((i * 37) % Math.max(70, height * .42));
-      ctx.globalAlpha = .3 + ((i % 4) * .12) * (1 - sunrise);
+      ctx.globalAlpha = .3 + ((i % 4) * .12) * (1 - horizonGlow * .35);
       ctx.beginPath(); ctx.arc(x, y, i % 5 === 0 ? 1.7 : 1, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
@@ -111,11 +114,17 @@ export class IntroSequence {
       ctx.fillStyle = `rgba(255, 235, 169, ${signal})`; ctx.shadowColor = "rgba(255, 235, 169, .8)"; ctx.shadowBlur = 24;
       ctx.beginPath(); ctx.arc(towerX, height * .2, 13 + signal * 8, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
     }
-    if (sunrise > 0) {
-      ctx.fillStyle = `rgba(255, 211, 110, ${sunrise})`; ctx.beginPath(); ctx.arc(width * .72, height * .72 + 6, 38, Math.PI, Math.PI * 2); ctx.fill();
+    if (horizonGlow > 0) {
+      ctx.save();
+      ctx.globalAlpha = .08 + horizonGlow * .08;
+      ctx.fillStyle = "#df956d";
+      ctx.shadowColor = "rgba(223, 149, 109, .36)";
+      ctx.shadowBlur = 28;
+      ctx.beginPath(); ctx.ellipse(width * .72, height * .72 + 10, 110, 12, 0, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
-    this.caption.textContent = elapsed < 1.7 ? "夜里，机械城停止呼吸。" : elapsed < 3.5 ? "一条紧急线路，唤醒沉睡的 Unit-0。" : elapsed < 5.2 ? "中央塔只剩一条信号：" : "MAKE THE SUN RISE AGAIN";
+    this.caption.textContent = elapsed < 1.7 ? "夜里，机械城停止呼吸。" : elapsed < 3.5 ? "一条紧急线路，唤醒沉睡的零号车。" : elapsed < 5.2 ? "中央塔发来最后一句请求：" : "让太阳再次升起";
     this.caption.dataset.final = elapsed >= 5.2 ? "true" : "false";
-    this.signal.textContent = elapsed >= 3.5 ? "MAKE THE SUN RISE AGAIN" : "";
+    this.signal.textContent = elapsed >= 3.5 ? "让太阳再次升起" : "";
   }
 }

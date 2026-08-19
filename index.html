@@ -4,18 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#fff4d6" />
-    <title>Unit-0 // The Sun Rises Again</title>
+    <title>零号车 · 让太阳再次升起</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div id="app" class="app-shell" data-app-ready="false">
-      <section id="introSequence" class="intro-sequence" hidden aria-label="Unit-0 opening scene">
+    <div id="app" class="app-shell" data-app-ready="false" data-intro-complete="false" data-intro-active="false" data-presentation-locked="true" aria-busy="true">
+      <section id="introSequence" class="intro-sequence" hidden aria-label="零号车的开场场景">
         <canvas id="introCanvas" aria-hidden="true"></canvas>
         <div class="intro-copy">
           <div id="introCaption" class="intro-caption">夜里，机械城停止呼吸。</div>
           <div id="introSignal" class="intro-signal" aria-live="polite"></div>
         </div>
-        <button id="introButton" class="intro-button" type="button">进入 Station Zero →</button>
+        <button id="introButton" class="intro-button" type="button">进入零号车站 →</button>
       </section>
       <header class="topbar">
         <div class="brand-lockup">
@@ -32,34 +32,26 @@
         <section class="world-panel panel">
           <div class="panel-topline">
             <div>
-              <div class="eyebrow" id="zoneLabel">STATION ZERO</div>
-            <h1 id="levelTitle" tabindex="-1">Wake Signal</h1>
+              <div class="eyebrow" id="zoneLabel">零号车站</div>
+            <h1 id="levelTitle" tabindex="-1">唤醒信号</h1>
             </div>
             <div class="level-readout"><span id="levelNumber">01</span><span class="slash">/</span><span>08</span></div>
           </div>
-          <div class="story-line" id="storyLine">A small light blinks beneath the dead rail.</div>
-          <aside id="starterNudge" class="starter-nudge" role="note" aria-live="polite" data-stage="hidden" hidden>
-            <span class="nudge-illustration" aria-hidden="true">👀</span>
-            <div class="nudge-copy">
-              <strong>先看一遍</strong>
-              <span class="nudge-message">先看我走一遍；先不用操作。</span>
-            </div>
-            <button id="dismissNudge" class="nudge-dismiss" type="button" aria-label="关闭提示">知道了</button>
-          </aside>
+          <div class="story-line" id="storyLine">死寂的轨道下，一盏小灯闪了一下。</div>
           <div class="canvas-wrap">
-            <canvas id="worldCanvas" aria-label="机械小镇地图"></canvas>
+            <canvas id="worldCanvas" aria-label="机械小镇的世界地图"></canvas>
             <div id="sceneCaption" class="scene-caption" aria-live="polite"></div>
-            <div class="canvas-hud hud-left"><span class="hud-key">任务</span><span id="goalText">Wake the signal.</span></div>
-            <div class="canvas-hud hud-right"><span class="hud-key">现在</span><span id="eventText">Awaiting input.</span></div>
+            <div class="canvas-hud hud-left"><span class="hud-key">任务</span><span id="goalText">观察世界中还在回应零号车的地方。</span></div>
+            <div class="canvas-hud hud-right"><span class="hud-key">现在</span><span id="eventText">等待操作。</span></div>
           </div>
-          <div id="worldMirror" class="world-mirror" data-world-mirror aria-live="polite" data-unit="dock" data-memory="empty" data-read="none" data-gate="closed" data-path="none" data-comparison="none" data-mood="idle" data-error="" data-success="" data-phase="idle" data-event-cursor="0">Unit-0 · 小屋 · 记忆 — · 读到 none · 路径 无</div>
+          <div id="worldMirror" class="world-mirror" data-world-mirror aria-live="polite" data-unit="dock" data-memory="无" data-read="无" data-gate="closed" data-path="无" data-comparison="无" data-mood="idle" data-error="" data-success="" data-phase="idle" data-event-cursor="0" data-active-edge="" data-token-phase="无" data-sun-visible="false">零号车 · 小屋 · 记忆 — · 读到无 · 路线无</div>
           <div class="world-legend">
             <span><i class="legend-swatch cyan"></i>走路</span>
             <span><i class="legend-swatch amber"></i>记忆</span>
             <span><i class="legend-swatch violet"></i>选择</span>
             <span class="legend-spacer"></span>
-            <span class="shortcut"><kbd>空格</kbd> 运行/暂停</span>
-            <span class="shortcut"><kbd>S</kbd> 单步</span>
+            <span class="shortcut"><kbd>空格</kbd> 运行 / 暂停</span>
+            <span class="shortcut"><kbd>S</kbd> 单步运行</span>
           </div>
         </section>
 
@@ -72,33 +64,33 @@
             <div class="code-badge">PY</div>
           </div>
           <div class="code-help" id="codeHelp">改一处小小的提示，再运行。</div>
-          <div class="code-lines" id="codeLines" aria-label="Interactive code snippet"></div>
+          <div class="code-lines" id="codeLines" aria-label="可编辑的程序代码"></div>
           <div class="code-foot">
-            <div class="line-state"><span class="line-led"></span><span id="lineState">LINE 00 // IDLE</span></div>
-            <div class="runtime-message" id="runtimeMessage">World is listening.</div>
+            <div class="line-state"><span class="line-led"></span><span id="lineState">第 00 行 · 准备</span></div>
+            <div class="runtime-message" id="runtimeMessage">世界正在等待。</div>
           </div>
         </aside>
       </main>
 
       <footer class="control-dock">
         <div class="control-group">
-          <button class="action-button primary" id="runButton" type="button" aria-label="▶ RUN"><span class="button-icon">▶</span> 运行</button>
-          <button class="action-button" id="pauseButton" type="button" aria-label="Ⅱ PAUSE"><span class="button-icon">Ⅱ</span> 暂停</button>
-          <button class="action-button" id="stepButton" type="button" aria-label="▸ STEP"><span class="button-icon">▸</span> 单步</button>
-          <button class="action-button" id="resetButton" type="button" aria-label="↺ RESET"><span class="button-icon">↺</span> 重置</button>
+          <button class="action-button primary" id="runButton" type="button" aria-label="运行" disabled><span class="button-icon">▶</span> 运行</button>
+          <button class="action-button" id="pauseButton" type="button" aria-label="暂停" disabled><span class="button-icon">Ⅱ</span> 暂停</button>
+          <button class="action-button" id="stepButton" type="button" aria-label="单步运行" disabled><span class="button-icon">▸</span> 单步</button>
+          <button class="action-button" id="resetButton" type="button" aria-label="重置" disabled><span class="button-icon">↺</span> 重置</button>
         </div>
         <div class="dock-divider"></div>
-        <button class="hint-button" id="hintButton" type="button" aria-label="? HINT"><span>?</span> 提示</button>
-        <button class="next-button" id="nextButton" type="button" aria-label="NEXT SIGNAL →">下一个信号 <span>→</span></button>
-        <div class="progress-dots" id="progressDots" aria-label="Level progress"></div>
+        <button class="hint-button" id="hintButton" type="button" aria-label="查看提示" disabled><span>?</span> 提示</button>
+        <button class="next-button" id="nextButton" type="button" aria-label="进入下一关" disabled>下一关 <span>→</span></button>
+        <div class="progress-dots" id="progressDots" aria-label="关卡进度"></div>
       </footer>
 
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
       <div class="level-card hidden" id="levelCard" role="dialog" aria-modal="true" aria-labelledby="cardTitle" aria-live="polite">
-        <div class="card-kicker" id="cardKicker">SIGNAL RESTORED</div>
+        <div class="card-kicker" id="cardKicker">信号已恢复</div>
         <h2 id="cardTitle">太好了！</h2>
-        <p id="cardText">The rail remembers its route.</p>
-        <button class="action-button primary card-button" id="cardNextButton" type="button" aria-label="CONTINUE →">继续 <span>→</span></button>
+        <p id="cardText">轨道记住了这条路线。</p>
+        <button class="action-button primary card-button" id="cardNextButton" type="button" aria-label="继续" disabled>继续 <span>→</span></button>
       </div>
     </div>
     <script type="module" src="./src/main.js"></script>

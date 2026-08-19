@@ -188,13 +188,6 @@ export async function runToTerminal(runtime, limit = 2_000) {
   return finishResult(runtime);
 }
 
-export async function runDemoToIdle(runtime, demoProgram, limit = 2_000) {
-  const action = runtime.runDemo ?? runtime.demo ?? runtime.playDemo;
-  assert.equal(typeof action, "function", "runtime needs isolated demo method");
-  await driveAsyncAction(runtime, () => action.call(runtime, demoProgram), () => /idle|ready/.test(String(phaseOf(runtime))) && cursorOf(runtime) === 0, limit);
-  return stateOf(runtime);
-}
-
 export function assertProgramShape(program, label) {
   const instructions = instructionsOf(program);
   assert.ok(instructions.length > 0, `${label} must contain instructions`);

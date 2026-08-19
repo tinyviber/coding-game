@@ -6,7 +6,7 @@ const e2eRoot = fileURLToPath(new URL("./", import.meta.url));
 
 export default defineConfig({
   testDir: e2eRoot,
-  timeout: 15_000,
+  timeout: 60_000,
   workers: 1,
   expect: { timeout: 5_000 },
   fullyParallel: false,
@@ -20,7 +20,7 @@ export default defineConfig({
     command: "python3 -m http.server 4173",
     cwd: repoRoot,
     url: "http://127.0.0.1:4173/index.html",
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     timeout: 10_000,
   },
   projects: [

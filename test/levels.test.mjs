@@ -4,76 +4,39 @@ import { cloneProgram, createProgram, getLevels } from "../src/levels.js";
 
 const levels = getLevels();
 
-const solvedProgram = (level) => {
-  const program = createProgram(level);
-  if (level.id === 1) program.actionOrder = ["charge", "move", "signal"];
-  if (level.id === 2) program.energy = 5;
-  if (level.id === 3) program.energy = 7;
-  if (level.id === 4) { program.target = "blue"; program.compare = "=="; }
-  if (level.id === 5) { program.compare = ">"; program.threshold = 6; }
-  if (level.id === 6) {
-    program.actionOrder = ["write", "read", "gate", "send"];
-    program.energy = 5;
-    program.compare = ">";
-    program.threshold = 3;
-  }
-  if (level.id === 7) { program.energy = 8; program.threshold = 6; program.target = "blue"; }
-  if (level.id === 8) { program.energy = 8; program.compare = ">"; program.threshold = 5; }
-  return program;
-};
-
-const stateFor = (level, success) => {
-  if (level.id === 1) return {};
-  if (level.id === 2) return { vars: { energy: success ? 5 : 2 } };
-  if (level.id === 3) return { readValue: success ? 7 : 4 };
-  return { gateBranch: success ? "accept" : "reject" };
-};
-
-test("real app exposes eight short levels across the story route", () => {
-  assert.equal(levels.length, 8);
+test("8 个关卡沿着同一条 Flow / Memory / Choice 故事线提供 typed program", () => {
   assert.deepEqual(levels.map((level) => level.id), [1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.equal(levels[0].zone, "STATION ZERO");
-  assert.equal(levels.at(-1).zone, "CENTRAL RELAY");
+  assert.match(levels[0].zone, /零号车站/);
+  assert.match(levels.at(-1).zone, /中央中继/);
   for (const level of levels) {
-    assert.ok(level.story);
-    assert.ok(level.goal);
-    assert.ok(level.help);
-    assert.ok(level.code(createProgram(level)).length >= 3);
+    assert.ok(level.scene && level.code && level.steps && level.check);
+    assert.ok(level.goal && level.help && level.hintSteps?.length >= 3);
+    assert.ok(level.starterProgram && level.solution);
   }
 });
 
-test("each level has a solvable configuration and default failure signal", () => {
+test("starter 与 solution 都是独立的 typed instruction program", () => {
   for (const level of levels) {
-    const solved = solvedProgram(level);
-    assert.equal(level.check(solved, stateFor(level, true)).ok, true, `level ${level.id} should solve`);
-    assert.equal(level.check(createProgram(level), stateFor(level, false)).ok, false, `level ${level.id} should fail by default`);
+    const starter = createProgram(level);
+    const solution = cloneProgram(level.solution);
+    assert.notDeepEqual(starter, solution, `level ${level.id} starter must need player input`);
+    assert.ok(starter.instructions.every((item) => typeof item.id === "string" && item.type));
+    assert.ok(solution.instructions.every((item) => typeof item.id === "string" && item.type));
   }
 });
 
-test("code steps stay mapped to visible code lines", () => {
+test("code steps stay mapped to visible source lines", () => {
   for (const level of levels) {
-    const program = solvedProgram(level);
+    const program = cloneProgram(level.solution);
     const lineCount = level.code(program).length;
-    for (const step of level.steps(program)) {
-      assert.ok(step.line >= 1 && step.line <= lineCount, `level ${level.id} line ${step.line}`);
+    for (const step of level.steps(program)) assert.ok(step.line >= 1 && step.line <= lineCount);
+  }
+});
+
+test("editable slot references use stable instruction IDs", () => {
+  for (const level of levels) {
+    for (const slot of level.editableSlots) {
+      if (slot.path) assert.ok(slot.instructionId, `level ${level.id} slot ${slot.id} needs instructionId`);
     }
   }
 });
-
-test("selected values appear in generated snippets", () => {
-  const fork = levels[4];
-  const code = fork.code(solvedProgram(fork)).flatMap((line) => line.parts ?? [{ text: line.text }]);
-  const renderedParts = code.map((part) => part.text ?? part.value ?? "").join(" ");
-  assert.match(renderedParts, />/);
-  assert.match(renderedParts, /6/);
-});
-
-test("program cloning does not mutate level defaults", () => {
-  const level = levels[5];
-  const original = createProgram(level);
-  const copy = cloneProgram(original);
-  copy.actionOrder.reverse();
-  assert.notDeepEqual(copy.actionOrder, original.actionOrder);
-  assert.deepEqual(createProgram(level).actionOrder, ["write", "gate", "read", "send"]);
-});
-

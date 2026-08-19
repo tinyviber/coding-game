@@ -67,15 +67,6 @@ h1 { margin-top: 7px; color: var(--ink); font-size: clamp(27px, 3.4vw, 43px); fo
 .slash { color: var(--paper-deep); padding: 0 4px; }
 .story-line { min-height: 24px; margin: 10px 0 12px; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
 
-.starter-nudge { display: flex; align-items: center; gap: 11px; width: min(100%, 590px); min-height: 54px; margin: 0 0 15px; padding: 9px 12px; color: var(--ink); background: rgba(255, 246, 210, .82); border-radius: 18px; box-shadow: 0 7px 0 rgba(226, 181, 99, .11); }
-.starter-nudge[hidden] { display: none; }
-.nudge-illustration { display: grid; flex: 0 0 34px; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #fff; font-size: 18px; }
-.nudge-copy { display: grid; min-width: 0; gap: 2px; font-size: 12px; line-height: 1.45; }
-.nudge-copy strong { color: var(--coral-deep); font-size: 12px; }
-.nudge-message { color: var(--ink-soft); }
-.nudge-message code { color: var(--coral-deep); font-weight: 800; }
-.nudge-dismiss { flex: 0 0 auto; min-height: 44px; padding: 0 10px; color: var(--ink-soft); background: transparent; border: 0; border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: 750; }
-.nudge-dismiss:hover, .nudge-dismiss:focus-visible { color: var(--coral-deep); background: rgba(255, 255, 255, .72); outline: 3px solid rgba(238, 141, 120, .2); outline-offset: 2px; }
 
 .canvas-wrap { position: relative; min-height: 448px; overflow: hidden; background: #172c4b; border-radius: 28px; box-shadow: var(--shadow); }
 #worldCanvas { display: block; width: 100%; height: 448px; }
@@ -105,8 +96,9 @@ kbd { padding: 3px 6px; color: var(--ink-soft); background: #fff; border: 1px so
 .code-line { position: relative; display: flex; align-items: center; min-height: 34px; padding: 0 7px 0 10px; color: var(--ink-soft); border-left: 4px solid transparent; border-radius: 0 15px 15px 0; transition: background .2s, border-color .2s, color .2s; }
 .code-line.current { color: var(--ink); background: #fff0bd; border-left-color: var(--sun); }
 .code-line.completed { color: #8da19b; }
-.code-line.nudge-target { color: var(--ink); background: #ffe9ad; border-left-color: var(--coral); box-shadow: 0 5px 0 rgba(200, 93, 83, .1); }
 .code-lines[data-locked="true"] { opacity: .75; }
+.app-shell[data-presentation-locked="true"] .code-lines { pointer-events: none; }
+.app-shell[data-presentation-locked="true"] .control-dock { cursor: wait; }
 .line-no { width: 27px; color: var(--ink-faint); user-select: none; font-size: 10px; }
 .code-text { min-width: 0; flex: 1; white-space: pre; }
 .code-keyword { color: #65539d; }
@@ -122,7 +114,6 @@ kbd { padding: 3px 6px; color: var(--ink-soft); background: #fff; border: 1px so
 .move-button { width: 40px; min-width: 40px; height: 44px; padding: 0; color: var(--ink-soft); background: #fff; border: 1px solid rgba(78, 103, 104, .16); border-radius: 13px; cursor: pointer; font-size: 14px; }
 .move-button:hover:not(:disabled) { color: var(--coral-deep); background: #fff0e6; border-color: rgba(238, 141, 120, .45); }
 .move-button:disabled { opacity: .28; cursor: default; }
-.move-button.nudge-target-control { color: var(--coral-deep); background: #fff0bd; border-color: var(--coral); animation: nudge-arrow 1.5s ease-in-out infinite; }
 .code-foot { padding-top: 12px; }
 .line-state { gap: 7px; color: var(--ink-soft); font: 10px "SFMono-Regular", Consolas, monospace; letter-spacing: .04em; }
 .line-led { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); }
@@ -153,8 +144,6 @@ kbd { padding: 3px 6px; color: var(--ink-soft); background: #fff; border: 1px so
 .progress-dot.current { background: var(--sun); }
 .progress-dot.done { background: var(--mint); }
 
-.starter-nudge[data-stage="try"] { background: #e4f4dd; }
-.app-shell[data-nudge-stage="try"] #runButton { animation: gentle-pulse 1.8s ease-in-out infinite; }
 .toast { position: fixed; bottom: 90px; left: 50%; z-index: 10; max-width: min(440px, calc(100% - 28px)); padding: 11px 16px; color: var(--ink); background: #fffdf4; border-radius: 16px; box-shadow: 0 12px 32px rgba(87, 107, 96, .2); opacity: 0; pointer-events: none; transform: translate(-50%, 14px); transition: opacity .2s, transform .2s; font-size: 12px; text-align: center; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .level-card { position: fixed; top: 50%; left: 50%; z-index: 20; width: min(390px, calc(100% - 36px)); padding: 30px; color: var(--ink); text-align: center; background: #fff9e9; border: 0; border-radius: 28px; box-shadow: 0 24px 70px rgba(87, 107, 96, .24); transform: translate(-50%, -50%); }
@@ -175,7 +164,6 @@ kbd { padding: 3px 6px; color: var(--ink-soft); background: #fff; border: 1px so
 
 @keyframes bob { 50% { transform: translateY(-2px); } }
 @keyframes gentle-pulse { 0%, 100% { box-shadow: 0 5px 0 rgba(190, 100, 88, .18); } 50% { box-shadow: 0 6px 0 rgba(190, 100, 88, .18), 0 0 0 7px rgba(238, 141, 120, .13); } }
-@keyframes nudge-arrow { 50% { background: #fff6d8; box-shadow: 0 4px 0 rgba(200, 93, 83, .16), 0 0 0 5px rgba(238, 141, 120, .12); } }
 
 @media (max-width: 980px) {
   .app-shell { padding: 22px 20px 26px; }
@@ -195,8 +183,6 @@ kbd { padding: 3px 6px; color: var(--ink-soft); background: #fff; border: 1px so
   .canvas-hud { top: 10px; max-width: 48%; padding: 7px 9px; font-size: 10px; }
   .hud-left { left: 10px; }
   .hud-right { right: 10px; }
-  .starter-nudge { align-items: flex-start; }
-  .nudge-dismiss { min-height: 44px; padding: 0 7px; }
   .world-legend { gap: 8px; }
   .shortcut { display: none; }
   .control-dock { align-items: stretch; flex-wrap: wrap; gap: 10px; padding-top: 15px; }
