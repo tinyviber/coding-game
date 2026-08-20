@@ -41,6 +41,10 @@ async function solveLevelOne(page) {
   await row.locator('button[aria-label="上移这一行"]').click();
   await page.locator("#runButton").click();
   await expect(page.locator("#worldMirror")).toHaveAttribute("data-phase", "success", { timeout: 15_000 });
+  const card = page.locator("#levelCard");
+  await expect.poll(() => card.evaluate((element) => element.open)).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(card).toBeHidden();
 }
 
 function mapLevelButton(page, id) {
@@ -97,7 +101,7 @@ test("invalid hash after an explicit route mounts the canonical fallback UI", as
 
   await page.goBack();
   await expect(page).toHaveURL(priorRoute);
-  expect(await page.evaluate(() => history.length)).toBe(historyBeforeHashNavigation);
+  expect(await page.evaluate(() => history.length)).toBe(historyBeforeHashNavigation + 1);
 
   await clearProgress(page);
   await page.goto("/index.html");

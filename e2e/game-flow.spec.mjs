@@ -9,7 +9,7 @@ async function fresh(page) {
   await page.reload();
 }
 
-async function enterAndWait(page) {
+async function enterAndWait(page, editableInstructionId = null) {
   const intro = page.locator("#introSequence");
   if (await intro.isVisible()) await page.locator("#introButton").click();
   if (await page.locator("#app").getAttribute("data-app-ready") !== "true") {
@@ -19,6 +19,11 @@ async function enterAndWait(page) {
   }
   await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "true", { timeout: 8_000 });
   await expect(page.locator("#runButton")).toBeEnabled();
+  await expect(page.locator("#codeLines")).toHaveAttribute("data-presentation-locked", "false");
+  await expect.poll(() => page.locator("#codeLines .code-line").count()).toBeGreaterThan(0);
+  if (editableInstructionId) {
+    await expect(row(page, editableInstructionId).locator("input, select, button").first()).toBeEnabled();
+  }
 }
 
 async function waitSuccess(page) {
@@ -46,7 +51,7 @@ async function moveRow(page, instruction, direction, times = 1) {
 test.describe("Unit-0 真实交互 vertical slice", () => {
   test("success card is a native modal with Escape and Continue lifecycle", async ({ page }) => {
     await fresh(page);
-    await enterAndWait(page);
+    await enterAndWait(page, "charge_station");
 
     await moveRow(page, "charge_station", "up");
     await page.locator("#runButton").click();
@@ -58,7 +63,10 @@ test.describe("Unit-0 真实交互 vertical slice", () => {
     await expect(page.locator("#levelTitle")).toBeFocused();
     expect(await page.locator("#levelCard").evaluate((element) => element instanceof HTMLDialogElement && !element.open)).toBe(true);
 
-    await page.locator("#resetButton").click();
+    // Reset intentionally preserves editor changes. Reload a fresh level so the
+    // second success path starts from the canonical program order.
+    await fresh(page);
+    await enterAndWait(page, "charge_station");
     await moveRow(page, "charge_station", "up");
     await page.locator("#runButton").click();
     await waitSuccess(page);
@@ -110,14 +118,14 @@ test.describe("Unit-0 真实交互 vertical slice", () => {
 
   test("从第 1 关完整玩到第 8 关，最后才出现日出", async ({ page }) => {
     await fresh(page);
-    await enterAndWait(page);
+    await enterAndWait(page, "charge_station");
     await expect(page.locator("#codeLines")).not.toContainText("read(");
 
     await moveRow(page, "charge_station", "up");
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await page.locator("#cardNextButton").click();
-    await enterAndWait(page);
+    await enterAndWait(page, "pickup_relay_core");
 
     await expect(page.locator("#codeLines")).toContainText('pickup("relay_core")');
     await expect(page.locator("#codeLines")).not.toContainText("read(");
@@ -125,33 +133,33 @@ test.describe("Unit-0 真实交互 vertical slice", () => {
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await page.locator("#cardNextButton").click();
-    await enterAndWait(page);
+    await enterAndWait(page, "write_energy");
 
     await control(page, "write_energy", "input").fill("5");
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await page.locator("#cardNextButton").click();
-    await enterAndWait(page);
+    await enterAndWait(page, "update_energy");
 
     await control(page, "update_energy", "input").fill("1");
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await page.locator("#cardNextButton").click();
-    await enterAndWait(page);
+    await enterAndWait(page, "branch_gate");
 
     await control(page, "branch_gate", "select").selectOption("<");
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "false");
     await page.locator("#cardNextButton").click();
-    await enterAndWait(page);
+    await enterAndWait(page, "branch_gate");
 
     await control(page, "branch_gate", "select").selectOption("==");
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "false");
     await page.locator("#cardNextButton").click();
-    await enterAndWait(page);
+    await enterAndWait(page, "update_energy");
 
     await control(page, "update_energy", "input").fill("3");
     await row(page, "branch_gate").getByLabel("成立路线").selectOption("light");
@@ -160,7 +168,7 @@ test.describe("Unit-0 真实交互 vertical slice", () => {
     await waitSuccess(page);
     await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "false");
     await page.locator("#cardNextButton").click();
-    await enterAndWait(page);
+    await enterAndWait(page, "update_energy");
 
     await control(page, "update_energy", "input").fill("4");
     await control(page, "branch_gate", "select", 0).selectOption(">");
