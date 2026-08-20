@@ -1,5 +1,5 @@
-import { cloneProgram, createProgram, getLevelById, getLevels, getNextLevelId } from "./levels.js";
-import { levelRoute, parseLevelRoute, routeForLevel } from "./navigation.js";
+import { LEVEL_IDS, cloneProgram, createProgram, getLevelById, getLevels, getNextLevelId, groupLevelsByMapGroup } from "./levels.js";
+import { resolveLevelRoute, routeForLevel } from "./navigation.js";
 import { loadProgress, saveProgress } from "./progress.js";
 import { Runtime } from "./runtime.js";
 import { CodePanel } from "./code-panel.js";
@@ -7,7 +7,7 @@ import { WorldView } from "./world.js";
 import { IntroSequence } from "./intro.js";
 
 const levels = getLevels();
-const levelIds = levels.map((item) => item.id);
+const levelIds = LEVEL_IDS;
 const firstLevelId = levelIds[0] || 1;
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -15,7 +15,7 @@ const els = {
   status: $("runStatus"), missionChip: document.querySelector(".mission-chip"), event: $("eventText"), lines: $("codeLines"), help: $("codeHelp"), lineState: $("lineState"), lineStateWrap: document.querySelector(".line-state"), message: $("runtimeMessage"),
   run: $("runButton"), pause: $("pauseButton"), step: $("stepButton"), reset: $("resetButton"), hint: $("hintButton"), next: $("nextButton"), dots: $("progressDots"), toast: $("toast"), app: $("app"),
   intro: $("introSequence"), introCanvas: $("introCanvas"), introCaption: $("introCaption"), introPromise: $("introPromise"), introButton: $("introButton"), sceneCaption: $("sceneCaption"), card: $("levelCard"), cardKicker: $("cardKicker"), cardTitle: $("cardTitle"), cardText: $("cardText"), cardNext: $("cardNextButton"),
-  mapButton: $("mapButton"), mapDialog: $("levelMapDialog"), mapCloseButton: $("mapCloseButton"), mapLevels: [...document.querySelectorAll("[data-level-id]")],
+  mapButton: $("mapButton"), mapDialog: $("levelMapDialog"), mapCloseButton: $("mapCloseButton"), mapGroups: $("mapGroups"), mapLevels: [], levelTotal: $("levelTotal"),
 };
 
 let progress = loadProgress(undefined, levelIds);
@@ -31,6 +31,9 @@ let mountGeneration = 0;
 let pendingLevelId = level.id;
 let introActive = false;
 let mapTrigger = null;
+let mapRestoreFocus = true;
+let cardRestoreFocus = null;
+let lastHandledRoute = null;
 const seenLaws = new Set();
 const hintIndexes = new Map();
 
@@ -38,12 +41,10 @@ const world = new WorldView(els.canvas, els.mirror);
 
 function validLevelId(value) { return Number.isInteger(value) && Boolean(getLevelById(value)); }
 
-function replaceWithCanonicalRoute(id) {
-  const route = levelRoute(id);
-  if (!route || window.location.hash === route) return;
-  try { window.history.replaceState(window.history.state, "", route); } catch {
-    try { window.location.hash = route; } catch {}
-  }
+function replaceWithCanonicalRoute(route) {
+  if (!route || window.location.hash === route) return false;
+  window.history.replaceState(window.history.state, "", route);
+  return true;
 }
 
 function savedFallbackLevelId() {
@@ -114,7 +115,58 @@ function clearToast() {
   if (els.toast) els.toast.textContent = "";
 }
 
-function closeCard() { els.card?.classList.add("hidden"); }
+function handleCardClose() {
+  const target = cardRestoreFocus;
+  cardRestoreFocus = null;
+  if (target && typeof target.focus === "function") target.focus();
+}
+
+function closeCard({ restoreFocus = false } = {}) {
+  if (!els.card) return;
+  cardRestoreFocus = restoreFocus ? els.title : null;
+  if (els.card.open) els.card.close();
+  else cardRestoreFocus = null;
+}
+
+function closeDialogsBeforeMount() {
+  closeMap(false);
+  closeCard();
+}
+
+function renderMap() {
+  const groups = groupLevelsByMapGroup(levels);
+  els.mapGroups.replaceChildren();
+  groups.forEach(({ key, label, levels: groupLevels }) => {
+    const headingId = `map-group-${key}-title`;
+    const section = document.createElement("section");
+    section.className = "map-group";
+    section.setAttribute("role", "group");
+    section.setAttribute("aria-labelledby", headingId);
+    const heading = document.createElement("h3");
+    heading.id = headingId;
+    heading.textContent = label;
+    section.append(heading);
+    const list = document.createElement("div");
+    list.className = "map-level-list";
+    groupLevels.forEach((item) => {
+      const button = document.createElement("button");
+      button.className = "map-level-button";
+      button.type = "button";
+      button.dataset.levelId = String(item.id);
+      const title = document.createElement("span");
+      title.textContent = `${String(item.id).padStart(2, "0")} · ${item.title}`;
+      const status = document.createElement("span");
+      status.className = "map-status";
+      status.dataset.mapStatus = "";
+      button.append(title, status);
+      list.append(button);
+    });
+    section.append(list);
+    els.mapGroups.append(section);
+  });
+  els.mapLevels = [...els.mapGroups.querySelectorAll("[data-level-id]")];
+  els.levelTotal.textContent = String(levelIds.length).padStart(2, "0");
+}
 
 function updateMap() {
   const completed = new Set(progress.completedLevelIds);
@@ -183,7 +235,7 @@ function handleFinish(result, generation) {
   els.cardTitle.textContent = level.successTitle;
   els.cardText.textContent = level.successText;
   els.cardNext.textContent = level.id === levels.at(-1)?.id ? "再修一次  ↺" : "继续  →";
-  els.card.classList.remove("hidden");
+  if (!els.card.open) els.card.showModal();
   els.cardNext.focus();
 }
 
@@ -191,6 +243,7 @@ function mountLevel(nextLevelId, { playBeat = true } = {}) {
   const nextLevel = getLevelById(nextLevelId);
   if (!nextLevel) return false;
   const generation = ++mountGeneration;
+  closeDialogsBeforeMount();
   pendingLevelId = nextLevel.id;
   levelId = nextLevel.id;
   level = nextLevel;
@@ -234,6 +287,7 @@ function startRequestedLevel() {
   els.app?.setAttribute("data-intro-active", "false");
   els.app?.setAttribute("data-intro-complete", "true");
   writeProgress({ ...progress, introSeen: true });
+  handleRouteChange();
   if (level.id !== pendingLevelId) mountLevel(pendingLevelId, { playBeat: false });
   setPresentationLock(true);
   playLawBeat(mountGeneration);
@@ -243,21 +297,24 @@ function navigateToLevel(nextLevelId) {
   if (!validLevelId(nextLevelId)) return;
   pendingLevelId = nextLevelId;
   const route = routeForLevel(nextLevelId);
-  if (!route || window.location.hash === route) return;
+  if (!route) return;
+  if (window.location.hash === route) {
+    closeMap(false);
+    els.title?.focus();
+    return;
+  }
   window.location.hash = route;
 }
 
 function handleRouteChange() {
-  const routedId = parseLevelRoute(window.location.hash, levelIds);
-  if (routedId === null) {
-    const fallback = savedFallbackLevelId();
-    pendingLevelId = fallback;
-    replaceWithCanonicalRoute(fallback);
-    return;
-  }
-  pendingLevelId = routedId;
-  if (introActive) mountLevel(routedId, { playBeat: false });
-  else mountLevel(routedId);
+  const resolved = resolveLevelRoute(window.location.hash, savedFallbackLevelId(), levelIds);
+  if (!resolved.route) return;
+  if (resolved.needsCanonicalize) replaceWithCanonicalRoute(resolved.route);
+  pendingLevelId = resolved.levelId;
+  const shouldMount = resolved.needsCanonicalize || lastHandledRoute !== resolved.route || levelId !== resolved.levelId;
+  lastHandledRoute = resolved.route;
+  if (!shouldMount) return;
+  mountLevel(resolved.levelId, { playBeat: !introActive });
 }
 
 function resetLevel() { closeCard(); runtime?.reset(); }
@@ -267,18 +324,23 @@ function nextLevel() { navigateToLevel(getNextLevelId(level.id)); }
 function openMap() {
   if (introActive || !els.mapDialog) return;
   mapTrigger = document.activeElement;
-  els.mapDialog.hidden = false;
-  els.mapDialog.setAttribute("aria-hidden", "false");
+  mapRestoreFocus = true;
+  if (!els.mapDialog.open) els.mapDialog.showModal();
   els.mapCloseButton?.focus();
 }
 
-function closeMap(restoreFocus = true) {
-  if (!els.mapDialog || els.mapDialog.hidden) return;
-  els.mapDialog.hidden = true;
-  els.mapDialog.setAttribute("aria-hidden", "true");
+function handleMapClose() {
   const trigger = mapTrigger;
+  const restoreFocus = mapRestoreFocus;
   mapTrigger = null;
+  mapRestoreFocus = true;
   if (restoreFocus && trigger && typeof trigger.focus === "function") trigger.focus();
+}
+
+function closeMap(restoreFocus = true) {
+  if (!els.mapDialog?.open) return;
+  mapRestoreFocus = restoreFocus;
+  els.mapDialog.close();
 }
 
 const intro = new IntroSequence(els.intro, els.introCanvas, els.introCaption, els.introPromise, els.introButton, startRequestedLevel, els.run);
@@ -291,6 +353,8 @@ const code = new CodePanel(els.lines, (nextProgram) => {
   closeCard();
   render(runtime.state);
 });
+
+renderMap();
 
 els.run.addEventListener("click", () => { if (!presentationLocked) runtime?.run(); });
 els.pause.addEventListener("click", () => { if (!presentationLocked) runtime?.pause(); });
@@ -307,22 +371,33 @@ els.hint.addEventListener("click", () => {
   showToast(hint);
 });
 els.next.addEventListener("click", nextLevel);
-els.cardNext.addEventListener("click", nextLevel);
+els.cardNext.addEventListener("click", () => {
+  closeCard();
+  nextLevel();
+});
 els.mapButton?.addEventListener("click", openMap);
 els.mapCloseButton?.addEventListener("click", () => closeMap());
-els.mapLevels.forEach((button) => button.addEventListener("click", () => {
+els.mapDialog?.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeMap();
+});
+els.mapDialog?.addEventListener("close", handleMapClose);
+els.card?.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeCard({ restoreFocus: true });
+});
+els.card?.addEventListener("close", handleCardClose);
+els.mapGroups?.addEventListener("click", (event) => {
+  const button = event.target.closest?.("button[data-level-id]");
+  if (!button || !els.mapGroups.contains(button)) return;
   const target = Number(button.dataset.levelId);
   closeMap(false);
   navigateToLevel(target);
-}));
+});
 
 window.addEventListener("hashchange", handleRouteChange);
+window.addEventListener("popstate", handleRouteChange);
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && els.mapDialog && !els.mapDialog.hidden) {
-    event.preventDefault();
-    closeMap();
-    return;
-  }
   if (event.target.matches?.("input, select, button")) return;
   if (!lastState || presentationLocked) return;
   if (event.code === "Space") {
@@ -335,18 +410,12 @@ window.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() === "r" && lastState.phase !== "demo") resetLevel();
 });
 
-const explicitRouteId = parseLevelRoute(window.location.hash, levelIds);
-const initialLevelId = explicitRouteId ?? savedFallbackLevelId();
-pendingLevelId = initialLevelId;
-if (explicitRouteId === null) replaceWithCanonicalRoute(initialLevelId);
 setPresentationLock(true);
 introActive = !progress.introSeen;
 els.app?.setAttribute("data-intro-active", String(introActive));
+handleRouteChange();
 if (introActive) {
-  mountLevel(initialLevelId, { playBeat: false });
   const shown = intro.show({ seen: false });
   introActive = shown;
   if (!shown) { introActive = true; startRequestedLevel(); }
-} else {
-  mountLevel(initialLevelId);
 }

@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getLevels, createProgram, cloneProgram, getMemoryPresentation } from "../src/levels.js";
+import {
+  LEVEL_IDS,
+  assertUniqueLevelIds,
+  cloneProgram,
+  createProgram,
+  getLevels,
+  getMemoryPresentation,
+  groupLevelsByMapGroup,
+} from "../src/levels.js";
 import {
   INSTRUCTION_TYPES,
   VALUE_EXPR_TYPES,
@@ -35,10 +43,14 @@ function renderedCode(level, program) {
 }
 
 test("canonical content is data-driven, exactly eight levels, and excludes future laws", () => {
-  assert.deepEqual(levels.map((level) => level.id), [1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.deepEqual(levels.map((level) => level.zone.split(" · ").at(-1)), ["Flow", "Flow", "Memory", "Memory", "Choice", "Choice", "Choice", "Choice"]);
+  assert.equal(Object.isFrozen(LEVEL_IDS), true);
+  assert.deepEqual(LEVEL_IDS, levels.map((level) => level.id));
+  assert.deepEqual(levels.map((level) => level.mapGroup.label), ["Flow", "Flow", "Memory", "Memory", "Choice", "Choice", "Choice", "Choice"]);
   for (const level of levels) {
     assert.ok(level.zone && level.title && level.story && level.goal, `level ${level.id} needs story metadata`);
+    assert.equal(typeof level.mapGroup?.key, "string", `level ${level.id} needs mapGroup.key metadata`);
+    assert.equal(typeof level.mapGroup?.label, "string", `level ${level.id} needs mapGroup.label metadata`);
+    assert.equal(typeof level.mapGroup?.order, "number", `level ${level.id} needs mapGroup.order metadata`);
     assert.ok(level.starterProgram && level.solution, `level ${level.id} needs canonical programs`);
     assert.ok(Array.isArray(level.editableSlots), `level ${level.id} needs editable slots`);
     assert.ok(Array.isArray(level.failureCases) && level.failureCases.length > 0, `level ${level.id} needs failure cases`);
@@ -46,6 +58,45 @@ test("canonical content is data-driven, exactly eight levels, and excludes futur
     assertProgramShape(level.starterProgram, `level ${level.id} starter`);
     assertProgramShape(level.solution, `level ${level.id} solution`);
   }
+});
+
+test("level registry validates unique IDs and groups only from explicit map metadata", () => {
+  assert.throws(
+    () => assertUniqueLevelIds([{ id: 4 }, { id: 4 }]),
+    /duplicate level id.*4/i,
+  );
+
+  const summarize = (groups) => groups.map((group) => ({
+    key: group.key,
+    label: group.label,
+    order: group.order,
+    levelIds: group.levels.map((level) => level.id),
+  }));
+
+  const baseline = summarize(groupLevelsByMapGroup(levels));
+  assert.deepEqual(baseline, [
+    { key: "flow", label: "Flow", order: 1, levelIds: [1, 2] },
+    { key: "memory", label: "Memory", order: 2, levelIds: [3, 4] },
+    { key: "choice", label: "Choice", order: 3, levelIds: [5, 6, 7, 8] },
+  ]);
+
+  const changedZones = levels.map((level) => ({
+    ...level,
+    zone: `arbitrary display text for ${level.id}`,
+    mapGroup: { ...level.mapGroup },
+  }));
+  assert.deepEqual(summarize(groupLevelsByMapGroup(changedZones)), baseline);
+
+  const extended = [
+    ...changedZones,
+    { id: 99, title: "临时任务", zone: "unrelated", mapGroup: { key: "night", label: "Night", order: 0 } },
+  ];
+  assert.deepEqual(summarize(groupLevelsByMapGroup(extended))[0], {
+    key: "night",
+    label: "Night",
+    order: 0,
+    levelIds: [99],
+  });
 });
 
 test("canonical programs use only typed instructions and typed ValueExpr nodes", () => {

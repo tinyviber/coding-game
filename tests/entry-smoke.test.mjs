@@ -26,6 +26,20 @@ test("entry document exposes playable controls and story surfaces", async () => 
   assert.match(html, /data-app-ready=["']false["']/);
 });
 
+test("level map entries are generated from metadata rather than hard-coded in HTML", async () => {
+  const html = await readFile(join(repoRoot, "index.html"), "utf8");
+  assert.match(html, /<dialog\b[^>]*id=["']levelMapDialog["']/);
+  assert.match(html, /<dialog\b[^>]*id=["']levelCard["']/);
+  const mapGroupsStart = html.indexOf("id=\"mapGroups\"");
+  assert.notEqual(mapGroupsStart, -1, "#mapGroups must remain the dynamic map mount point");
+  const mapGroupsOpenEnd = html.indexOf(">", mapGroupsStart);
+  const mapGroupsClose = html.indexOf("</div>", mapGroupsOpenEnd);
+  assert.equal(html.slice(mapGroupsOpenEnd + 1, mapGroupsClose).trim(), "", "#mapGroups must be empty in HTML");
+  assert.doesNotMatch(html, /data-level-id\s*=/, "index.html must not own individual map level buttons");
+  const cardTag = html.match(/<[^>]*id=["']levelCard["'][^>]*>/)?.[0] || "";
+  assert.doesNotMatch(cardTag, /\bhidden\b/, "success card must use native dialog state");
+});
+
 test("execution source has no explicit read/Reader instruction surface or arbitrary code execution", async () => {
   const names = ["levels.js", "runtime.js", "world.js", "code-panel.js"];
   const source = await Promise.all(names.map((name) => readFile(join(repoRoot, "src", name), "utf8")));

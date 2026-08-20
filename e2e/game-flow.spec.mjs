@@ -23,7 +23,10 @@ async function enterAndWait(page) {
 
 async function waitSuccess(page) {
   await expect(page.locator("#worldMirror")).toHaveAttribute("data-phase", "success", { timeout: 15_000 });
-  await expect(page.locator("#levelCard")).not.toHaveClass(/hidden/);
+  const card = page.locator("#levelCard");
+  expect(await card.evaluate((element) => element instanceof HTMLDialogElement)).toBe(true);
+  await expect.poll(() => card.evaluate((element) => element.open)).toBe(true);
+  await expect(card).toBeVisible();
 }
 
 function row(page, instruction) {
@@ -41,6 +44,31 @@ async function moveRow(page, instruction, direction, times = 1) {
 }
 
 test.describe("Unit-0 真实交互 vertical slice", () => {
+  test("success card is a native modal with Escape and Continue lifecycle", async ({ page }) => {
+    await fresh(page);
+    await enterAndWait(page);
+
+    await moveRow(page, "charge_station", "up");
+    await page.locator("#runButton").click();
+    await waitSuccess(page);
+    await expect(page.locator("#cardNextButton")).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#levelCard")).toBeHidden();
+    await expect(page.locator("#levelTitle")).toBeFocused();
+    expect(await page.locator("#levelCard").evaluate((element) => element instanceof HTMLDialogElement && !element.open)).toBe(true);
+
+    await page.locator("#resetButton").click();
+    await moveRow(page, "charge_station", "up");
+    await page.locator("#runButton").click();
+    await waitSuccess(page);
+    await page.locator("#cardNextButton").click();
+    await expect(page).toHaveURL(/#\/level\/2$/);
+    await expect(page.locator("#levelCard")).toBeHidden();
+    expect(await page.locator("#levelCard").evaluate((element) => element instanceof HTMLDialogElement && !element.open)).toBe(true);
+    await expect(page.locator("#levelTitle")).toHaveText("遗失的核心");
+  });
+
   test("Intro → Flow beat → 玩家控制，且已看 Intro 仍播放 Flow beat", async ({ page }) => {
     await fresh(page);
     await expect(page.locator("#introSequence")).toBeVisible();

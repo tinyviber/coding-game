@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cloneProgram, createProgram, getLevels, normalizeProgram } from "../src/levels.js";
+import { LEVEL_IDS, cloneProgram, createProgram, getLevels, normalizeProgram } from "../src/levels.js";
 import { INSTRUCTION_TYPES, instructionsOf } from "../tests/helpers/canonical-contract.mjs";
 
 const levels = getLevels();
@@ -10,11 +10,16 @@ function types(program) {
 }
 
 test("the authored campaign is exactly eight Flow, Memory, and Choice levels", () => {
-  assert.deepEqual(levels.map((level) => level.id), [1, 2, 3, 4, 5, 6, 7, 8]);
-  const laws = levels.map((level) => level.law || level.zone.split(" · ").at(-1));
-  assert.deepEqual(new Set(laws), new Set(["Flow", "Memory", "Choice"]));
+  assert.equal(Object.isFrozen(LEVEL_IDS), true);
+  assert.deepEqual(LEVEL_IDS, levels.map((level) => level.id));
+  assert.deepEqual(new Set(levels.map((level) => level.mapGroup.label)), new Set(["Flow", "Memory", "Choice"]));
+  const authoredLaws = levels.map((level) => level.law).filter(Boolean);
+  assert.deepEqual(new Set(authoredLaws), new Set(["Flow", "Memory", "Choice"]));
   assert.equal(levels.some((level) => /Cycle|Function|Collection/i.test(`${level.zone} ${level.law} ${level.title}`)), false);
   for (const level of levels) {
+    assert.equal(typeof level.mapGroup?.key, "string", `level ${level.id} needs mapGroup.key metadata`);
+    assert.equal(typeof level.mapGroup?.label, "string", `level ${level.id} needs mapGroup.label metadata`);
+    assert.equal(typeof level.mapGroup?.order, "number", `level ${level.id} needs mapGroup.order metadata`);
     assert.ok(level.scene && level.code && level.steps && level.check, `level ${level.id} needs public level contracts`);
     assert.ok(level.starterProgram && level.solution, `level ${level.id} needs starter and solution`);
     assert.ok(Array.isArray(level.editableSlots), `level ${level.id} needs editable slots`);

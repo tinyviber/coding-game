@@ -150,15 +150,17 @@ kbd { padding: 3px 6px; color: var(--ink-soft); background: #fff; border: 1px so
 
 .toast { position: fixed; bottom: 90px; left: 50%; z-index: 10; max-width: min(440px, calc(100% - 28px)); padding: 11px 16px; color: var(--ink); background: #fffdf4; border-radius: 16px; box-shadow: 0 12px 32px rgba(87, 107, 96, .2); opacity: 0; pointer-events: none; transform: translate(-50%, 14px); transition: opacity .2s, transform .2s; font-size: 12px; text-align: center; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
-.level-card { position: fixed; top: 50%; left: 50%; z-index: 20; width: min(390px, calc(100% - 36px)); padding: 30px; color: var(--ink); text-align: center; background: #fff9e9; border: 0; border-radius: 28px; box-shadow: 0 24px 70px rgba(87, 107, 96, .24); transform: translate(-50%, -50%); }
-.level-card.hidden { display: none; }
+.level-card { position: fixed; top: 50%; left: 50%; z-index: 20; width: min(390px, calc(100% - 36px)); margin: 0; padding: 30px; color: var(--ink); text-align: center; background: #fff9e9; border: 0; border-radius: 28px; box-shadow: 0 24px 70px rgba(87, 107, 96, .24); transform: translate(-50%, -50%); }
+.level-card:not([open]) { display: none; }
+.level-card::backdrop { background: rgba(17, 28, 53, .3); }
 .card-kicker { color: #4d9b78; font-size: 10px; font-weight: 850; letter-spacing: .16em; }
 .level-card h2 { margin-top: 11px; color: var(--ink); font-size: 30px; letter-spacing: -.04em; }
 .level-card p { margin-top: 9px; color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
 .card-button { margin-top: 22px; }
 
-.map-dialog { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: rgba(17, 28, 53, .48); }
-.map-dialog[hidden] { display: none; }
+.map-dialog { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; max-width: none; max-height: none; margin: 0; padding: 20px; background: rgba(17, 28, 53, .48); border: 0; }
+.map-dialog:not([open]) { display: none; }
+.map-dialog::backdrop { background: transparent; }
 .map-dialog-panel { width: min(650px, 100%); max-height: min(720px, calc(100vh - 40px)); overflow: auto; padding: 26px; background: #fff9e9; border-radius: 26px; box-shadow: 0 24px 70px rgba(28, 45, 55, .28); }
 .map-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .map-dialog-head h2 { margin-top: 7px; color: var(--ink); font-size: 30px; letter-spacing: -.04em; }

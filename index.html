@@ -31,7 +31,7 @@
           </div>
       </header>
 
-      <div id="levelMapDialog" class="map-dialog" role="dialog" aria-modal="true" aria-labelledby="mapTitle" aria-hidden="true" hidden>
+      <dialog id="levelMapDialog" class="map-dialog" aria-labelledby="mapTitle">
         <div class="map-dialog-panel">
           <div class="map-dialog-head">
             <div>
@@ -40,33 +40,9 @@
             </div>
             <button id="mapCloseButton" class="map-close-button" type="button" aria-label="关闭关卡地图">×</button>
           </div>
-          <div class="map-groups">
-            <section class="map-group" role="group" aria-labelledby="mapFlowTitle">
-              <h3 id="mapFlowTitle">Flow</h3>
-              <div class="map-level-list">
-                <button class="map-level-button" type="button" data-level-id="1"><span>01 · 唤醒轨道</span><span class="map-status" data-map-status></span></button>
-                <button class="map-level-button" type="button" data-level-id="2"><span>02 · 遗失的核心</span><span class="map-status" data-map-status></span></button>
-              </div>
-            </section>
-            <section class="map-group" role="group" aria-labelledby="mapMemoryTitle">
-              <h3 id="mapMemoryTitle">Memory</h3>
-              <div class="map-level-list">
-                <button class="map-level-button" type="button" data-level-id="3"><span>03 · 记住能量</span><span class="map-status" data-map-status></span></button>
-                <button class="map-level-button" type="button" data-level-id="4"><span>04 · 增加能量</span><span class="map-status" data-map-status></span></button>
-              </div>
-            </section>
-            <section class="map-group" role="group" aria-labelledby="mapChoiceTitle">
-              <h3 id="mapChoiceTitle">Choice</h3>
-              <div class="map-level-list">
-                <button class="map-level-button" type="button" data-level-id="5"><span>05 · 打开亮路</span><span class="map-status" data-map-status></span></button>
-                <button class="map-level-button" type="button" data-level-id="6"><span>06 · 匹配标签</span><span class="map-status" data-map-status></span></button>
-                <button class="map-level-button" type="button" data-level-id="7"><span>07 · 修好控制程序</span><span class="map-status" data-map-status></span></button>
-                <button class="map-level-button" type="button" data-level-id="8"><span>08 · 唤醒中央塔</span><span class="map-status" data-map-status></span></button>
-              </div>
-            </section>
-          </div>
+          <div id="mapGroups" class="map-groups"></div>
         </div>
-      </div>
+      </dialog>
 
       <main class="game-grid">
         <section class="world-panel panel">
@@ -75,7 +51,7 @@
               <div class="eyebrow" id="zoneLabel">零号车站</div>
             <h1 id="levelTitle" tabindex="-1">唤醒信号</h1>
             </div>
-            <div class="level-count"><span id="levelNumber">01</span><span class="slash">/</span><span>08</span></div>
+            <div class="level-count"><span id="levelNumber">01</span><span class="slash">/</span><span id="levelTotal">00</span></div>
           </div>
           <div class="story-line" id="storyLine">死寂的轨道下，一盏小灯闪了一下。</div>
           <div class="canvas-wrap">
@@ -126,12 +102,12 @@
       </footer>
 
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
-      <div class="level-card hidden" id="levelCard" role="dialog" aria-modal="true" aria-labelledby="cardTitle" aria-live="polite">
+      <dialog class="level-card" id="levelCard" aria-labelledby="cardTitle" aria-live="polite">
         <div class="card-kicker" id="cardKicker">信号已恢复</div>
         <h2 id="cardTitle">太好了！</h2>
         <p id="cardText">轨道记住了这条路线。</p>
         <button class="action-button primary card-button" id="cardNextButton" type="button" aria-label="继续" disabled>继续 <span>→</span></button>
-      </div>
+      </dialog>
     </div>
     <script type="module" src="./src/main.js"></script>
   </body>

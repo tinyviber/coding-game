@@ -57,7 +57,17 @@ test("static dist keeps clean /level/N paths as 404 while hash deep links load",
   await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[3]);
 });
 
-test("direct route survives Intro, root uses lastPlayed, invalid routes replace, and explicit hashes win", async ({ page }) => {
+test("explicit deep link remains the intro target instead of falling back to Level 1", async ({ page }) => {
+  await freshRoute(page, 5);
+  await expect(page.locator("#introSequence")).toBeVisible();
+  await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[5]);
+  await page.locator("#introButton").click();
+  await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "true", { timeout: 8_000 });
+  await expect(page).toHaveURL(/#\/level\/5$/);
+  await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[5]);
+});
+
+test("invalid hash after an explicit route mounts the canonical fallback UI", async ({ page }) => {
   await freshRoute(page, 3);
   await expect(page.locator("#introSequence")).toBeVisible();
   await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[3]);
@@ -66,14 +76,31 @@ test("direct route survives Intro, root uses lastPlayed, invalid routes replace,
   await page.goto("/index.html");
   await expect(page).toHaveURL(/#\/level\/3$/);
   await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[3]);
-
   await openRoute(page, 1);
   await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[1]);
-  await openRoute(page, "missing", { expectCanonical: false });
-  await expect(page).toHaveURL(/#\/level\/1$/);
-  await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[1]);
+  await openRoute(page, 3);
+  await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[3]);
+  await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "true", { timeout: 8_000 });
+  await page.locator("#runButton").click();
+  await expect(page.locator("#worldMirror")).toHaveAttribute("data-phase", "running", { timeout: 3_000 });
+
+  const priorRoute = page.url();
+  const historyBeforeHashNavigation = await page.evaluate(() => history.length);
+  await page.evaluate(() => { window.location.hash = "#/level/invalid"; });
+  await expect(page).toHaveURL(/#\/level\/3$/);
+  expect(await page.evaluate(() => history.length)).toBe(historyBeforeHashNavigation + 1);
+  await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[3]);
+  await expect(page.locator("#worldMirror")).toHaveAttribute("data-phase", "idle");
+  await expect(page.locator("#worldMirror")).toHaveAttribute("data-event-cursor", "0");
+  await expect(page.locator("#sceneCaption")).toBeHidden();
+  await expect(page.locator('#codeLines .code-line[data-instruction-id="write_energy"] input')).toHaveValue("2");
+
+  await page.goBack();
+  await expect(page).toHaveURL(priorRoute);
+  expect(await page.evaluate(() => history.length)).toBe(historyBeforeHashNavigation);
 
   await clearProgress(page);
+  await page.goto("/index.html");
   await openRoute(page, "not-a-level", { expectCanonical: false });
   await expect(page).toHaveURL(/#\/level\/1$/);
   await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[1]);
@@ -89,16 +116,25 @@ test("Next and map selection make one history entry, while Back and Forward only
   await expect(page).toHaveURL(/#\/level\/2$/);
   expect(await page.evaluate(() => history.length)).toBe(beforeMap + 1);
   await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[2]);
+  await expect(page.locator("#levelMapDialog")).toBeHidden();
+  await expect(page.locator("#levelCard")).toBeHidden();
+  await expect(page.locator("#toast")).not.toHaveClass(/show/);
 
   const beforeBack = await page.evaluate(() => history.length);
   await page.goBack();
   await expect(page).toHaveURL(/#\/level\/1$/);
   await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[1]);
+  await expect(page.locator("#levelMapDialog")).toBeHidden();
+  await expect(page.locator("#levelCard")).toBeHidden();
+  await expect(page.locator("#toast")).not.toHaveClass(/show/);
   expect(await page.evaluate(() => history.length)).toBe(beforeBack);
 
   await page.goForward();
   await expect(page).toHaveURL(/#\/level\/2$/);
   await expect(page.locator("#levelTitle")).toHaveText(LEVEL_TITLES[2]);
+  await expect(page.locator("#levelMapDialog")).toBeHidden();
+  await expect(page.locator("#levelCard")).toBeHidden();
+  await expect(page.locator("#toast")).not.toHaveClass(/show/);
 
   await freshRoute(page, 1);
   await enterLevel(page);
@@ -107,6 +143,9 @@ test("Next and map selection make one history entry, while Back and Forward only
   await page.locator("#nextButton").click();
   await expect(page).toHaveURL(/#\/level\/2$/);
   expect(await page.evaluate(() => history.length)).toBe(beforeNext + 1);
+  await expect(page.locator("#levelMapDialog")).toBeHidden();
+  await expect(page.locator("#levelCard")).toBeHidden();
+  await expect(page.locator("#toast")).not.toHaveClass(/show/);
 });
 
 test("map uses a native accessible dialog with groups, current/completed state, and focus restoration", async ({ page }) => {
@@ -117,21 +156,33 @@ test("map uses a native accessible dialog with groups, current/completed state, 
   await page.locator("#mapButton").click();
   const dialog = page.locator("#levelMapDialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog).toHaveAttribute("role", "dialog");
+  expect(await dialog.evaluate((element) => element instanceof HTMLDialogElement)).toBe(true);
+  await expect.poll(() => dialog.evaluate((element) => element.open)).toBe(true);
   await expect(page.locator("#mapCloseButton")).toBeFocused();
   await expect(dialog.locator("button[data-level-id]")).toHaveCount(8);
   await expect(dialog.getByRole("group")).toHaveCount(3);
   for (const group of ["Flow", "Memory", "Choice"]) {
-    await expect(dialog.getByRole("group", { name: new RegExp(group) })).toBeVisible();
+  await expect(dialog.getByRole("group", { name: new RegExp(group) })).toBeVisible();
   }
 
   await expect(mapLevelButton(page, 1)).toHaveAttribute("aria-current", "page");
   await expect(mapLevelButton(page, 1)).toBeEnabled();
   await expect(mapLevelButton(page, 8)).toBeEnabled();
 
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => document.querySelector("#levelMapDialog")?.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("Shift+Tab");
+  expect(await page.evaluate(() => document.querySelector("#levelMapDialog")?.contains(document.activeElement))).toBe(true);
+
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(page.locator("#mapButton")).toBeFocused();
+
+  await page.locator("#mapButton").click();
+  await mapLevelButton(page, 1).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/#\/level\/1$/);
+  await expect(page.locator("#levelTitle")).toBeFocused();
 
   await solveLevelOne(page);
   await page.locator("#mapButton").click();
@@ -163,9 +214,11 @@ test("completion persists on reload, active transition resets runtime state, and
   await expect(page.locator("#worldMirror")).toHaveAttribute("data-phase", "idle");
   await expect(page.locator("#worldMirror")).toHaveAttribute("data-event-cursor", "0");
   await expect(page.locator("#levelCard")).toBeHidden();
+  expect(await page.locator("#levelCard").evaluate((element) => element instanceof HTMLDialogElement && !element.open)).toBe(true);
   await expect(page.locator("#nextButton")).toBeDisabled();
   await expect(page.locator("#sceneCaption")).toBeHidden();
   await expect(page.locator("#levelTitle")).toBeFocused();
+  await expect(page.locator("#toast")).not.toHaveClass(/show/);
 
   await freshRoute(page, 3);
   await enterLevel(page);

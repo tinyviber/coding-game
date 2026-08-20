@@ -150,7 +150,7 @@ getState / snapshot / getEvents / snapshotState
 
 静态部署使用 canonical hash route `#/level/1` 到 `#/level/8`。空 hash 或无效 hash 通过 `history.replaceState` 规范化到有效的最近游玩关卡，若没有记录则为 1；不会为规范化创建额外历史记录。地图和“下一关”只写入不同的 hash 一次，`hashchange` 负责挂载；浏览器后退/前进只重新挂载目标关卡。
 
-关卡 ID 是手工维护的稳定数字身份，下一关映射为 `8 → 1`。每次有效挂载使用该关卡 starter program；Runtime 的 `reset()` 保留当前代码编辑，只清空世界和 `eventCursor`。开场、关卡切换和过场都带有生命周期身份校验，旧运行时、动画帧和延迟回调不能覆盖新关卡。
+每个 level definition 声明稳定数字身份，`LEVEL_IDS` 从完成后的 level metadata 自动派生并在初始化时校验唯一；下一关映射为 `8 → 1`。每关还声明 `mapGroup: { key, label, order }`，维修地图只消费这层 metadata，不从 `zone` 展示文本解析分组，也不在 HTML 重复维护按钮。每次有效挂载使用该关卡 starter program；Runtime 的 `reset()` 保留当前代码编辑，只清空世界和 `eventCursor`。开场、关卡切换和过场都带有生命周期身份校验，旧运行时、动画帧和延迟回调不能覆盖新关卡。
 
 浏览器存储只接受 v1 schema：
 
@@ -158,7 +158,7 @@ getState / snapshot / getEvents / snapshotState
 { version: 1, completedLevelIds: [], lastPlayedLevelId: null, introSeen: false }
 ```
 
-加载只读不修复或清除坏数据；读、解析、校验和写入失败都回退到内存默认值。成功挂载、完成开场和成功通关才触发明确写入，不保存代码或 Runtime。关卡地图是 role dialog，包含 Flow、Memory、Choice 三组，八个原生按钮始终可用；打开时聚焦关闭按钮，关闭或 Escape 恢复触发按钮，当前关卡使用 `aria-current="page"`，已修复关卡同时暴露 `data-completed="true"` 和中文状态。
+加载只读不修复或清除坏数据；读、解析、校验和写入失败都回退到内存默认值。成功挂载、完成开场和成功通关才触发明确写入，不保存代码或 Runtime。关卡地图和成功卡片都是 native `<dialog>`，地图包含由 metadata 动态生成的 Flow、Memory、Choice 分组和八个原生按钮；打开时聚焦关闭按钮，关闭或 Escape 恢复触发按钮，当前关卡使用 `aria-current="page"`，已修复关卡同时暴露 `data-completed="true"` 和中文状态。切换关卡前会关闭旧 dialog、toast 和动画回调。
 
 ## 8. 验收标准
 
