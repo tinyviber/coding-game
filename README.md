@@ -42,6 +42,10 @@ npm run build
 
 ## 实现边界
 
+### `deliver()` 语义决策
+
+长期设计中，`deliver()` 只负责真实物品的交付或安装；普通设备启动应改用 `activate()`，或由 Unit-0 到达目标后触发。本轮为保持现有机制与教学进度，暂不迁移 `deliver()`。
+
 - `src/levels.js`：八个数据驱动关卡、typed instruction、ValueExpr、中文目标与提示、Python-like 代码行和编辑映射。
 - `src/runtime.js`：受控操作校验、稳定事件身份、真实有向轨道、独立的数据位置、Run/Pause/Step/Reset 和安全快照。
 - `src/world.js`：Canvas 机械城、记忆盒、判断门、relay_core 和隐藏的 `worldMirror` 无障碍镜像。

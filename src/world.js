@@ -1,4 +1,4 @@
-import { getScene, getWorldItemLabel, getWorldLabel } from "./levels.js";
+import { getMemoryLabel, getScene, getWorldItemLabel, getWorldLabel } from "./levels.js";
 import { edgeControlPoints, pointOnEdge } from "./geometry.js";
 
 const palette = {
@@ -67,7 +67,8 @@ export class WorldView {
 
   updateMirror(state) {
     if (!this.mirror) return;
-    const memory = Object.entries(state.vars || {}).map(([key, value]) => `${key}=${value}`).join(" ");
+    const memory = Object.entries(state.vars || {}).map(([key, value]) => `${getMemoryLabel(key)}=${value}`).join(" ");
+    const internalMemory = Object.entries(state.vars || {}).map(([key, value]) => `${key}=${value}`).join(" ");
     const unitName = getWorldLabel(this.lastLevel, state.unitNode || "dock") || "小屋";
     const pathName = state.path ? getWorldLabel(this.lastLevel, state.path) : "无";
     const carriedName = state.carried ? getWorldItemLabel(this.lastLevel, state.carried) : "无";
@@ -77,7 +78,7 @@ export class WorldView {
     const tokenEdge = state.tokenEdge ? `${state.tokenEdge.from}->${state.tokenEdge.to}` : "";
     const sunVisible = this.lastLevel?.id === 8 && state.phase === "success";
     this.mirror.dataset.unit = state.unitNode || "dock";
-    this.mirror.dataset.memory = memory || "无";
+    this.mirror.dataset.memory = internalMemory || "无";
     this.mirror.dataset.carried = state.carried || "无";
     this.mirror.dataset.relayInstalled = String(Boolean(state.relayInstalled));
     this.mirror.dataset.coreLocation = state.coreLocation || "无";
@@ -156,7 +157,7 @@ export class WorldView {
       const open = state.gateOpen ? 8 : 0; ctx.roundRect(-11 - open, -14, 8, 28, 4); ctx.fill(); ctx.roundRect(3 + open, -14, 8, 28, 4); ctx.fill(); ctx.fillStyle = palette.ink; ctx.font = "bold 13px system-ui"; ctx.textAlign = "center";
       if (state.comparison) { ctx.fillText(`${state.comparison.left} ${state.comparison.operator} ${state.comparison.right}`, 0, -35); ctx.font = "900 10px system-ui"; ctx.fillStyle = state.comparison.result ? palette.green : palette.rose; ctx.fillText(state.comparison.result ? "成立" : "不成立", 0, 40); } else ctx.fillText("?", 0, 5);
     } else if (node.type === "memory") {
-      ctx.roundRect(-12, -3, 24, 6, 3); ctx.fill(); ctx.roundRect(-7, -10, 14, 5, 2); ctx.fill(); ctx.fillStyle = palette.ink; ctx.beginPath(); ctx.arc(-7, 8, 2, 0, Math.PI * 2); ctx.arc(0, 8, 2, 0, Math.PI * 2); ctx.arc(7, 8, 2, 0, Math.PI * 2); ctx.fill(); const key = state.memoryKey || Object.keys(state.vars || {})[0]; if (key) { ctx.font = "900 10px system-ui"; ctx.textAlign = "center"; ctx.fillText(`${key}: ${state.vars[key]}`, 0, -23); }
+      ctx.roundRect(-12, -3, 24, 6, 3); ctx.fill(); ctx.roundRect(-7, -10, 14, 5, 2); ctx.fill(); ctx.fillStyle = palette.ink; ctx.beginPath(); ctx.arc(-7, 8, 2, 0, Math.PI * 2); ctx.arc(0, 8, 2, 0, Math.PI * 2); ctx.arc(7, 8, 2, 0, Math.PI * 2); ctx.fill(); const key = state.memoryKey || Object.keys(state.vars || {})[0]; if (key) { ctx.font = "900 10px system-ui"; ctx.textAlign = "center"; ctx.fillText(`${getMemoryLabel(key)}: ${state.vars[key]}`, 0, -23); }
     } else if (node.type === "relay") { ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.moveTo(0, -5); ctx.lineTo(0, 5); ctx.stroke(); }
     else if (node.type === "core") { ctx.roundRect(-10, -8, 20, 16, 4); ctx.fill(); ctx.strokeRect(-5, -4, 10, 8); }
     else if (node.type === "energy") { ctx.beginPath(); ctx.moveTo(3, -13); ctx.lineTo(-7, 1); ctx.lineTo(0, 1); ctx.lineTo(-3, 13); ctx.lineTo(8, -3); ctx.lineTo(1, -3); ctx.closePath(); ctx.fill(); }

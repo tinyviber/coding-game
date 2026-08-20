@@ -79,6 +79,8 @@ const WORLD_LABELS = Object.freeze({
   dawn: "晨光路",
 });
 
+const MEMORY_LABELS = Object.freeze({ cargo: "标签", energy: "energy" });
+
 const WORLD_TOKEN_PATTERN = /\b(?:relay_core|dock|charge|memory|gate|relay|light|dark|dawn)\b/g;
 const CODE_WORD_PATTERN = /\b(?:move|charge|pickup|deliver|write|update|branch)\b/g;
 
@@ -89,6 +91,12 @@ export function getWorldLabel(level, id) {
 
 export function getWorldItemLabel(level, id) {
   return id === "relay_core" ? WORLD_LABELS.relay_core : getWorldLabel(level, id);
+}
+
+export function getMemoryLabel(name, { prose = false } = {}) {
+  if (name === "cargo") return MEMORY_LABELS.cargo;
+  if (name === "energy") return prose ? "能量" : MEMORY_LABELS.energy;
+  return name;
 }
 
 export function formatWorldText(level, text, { preserveCodeWords = false } = {}) {
@@ -222,7 +230,7 @@ const levelDefinitions = [
     story: "中继站已经断电，只有轨道旁的充电站还亮着。",
     goal: "先给 Unit-0 充好电，再启动中继站。",
     help: "先让 Unit-0 到充电站，再让它前往中继站。",
-    hintSteps: ["中继站来得太早，Unit-0 还没有 energy。", "先让 Unit-0 到充电站。", "把充电放在送出 energy 之前。"],
+    hintSteps: ["中继站来得太早，Unit-0 还没充好电。", "先让 Unit-0 到充电站。", "先充好电，再让 Unit-0 前往中继站。"],
     law: "Flow", lawBeat: { type: "flow", caption: "先到充电站，拿到能量，中继站才会亮。" }, dawnProgress: 0.02,
     memoryNames: ["energy"], worldRules: { chargeMemory: "energy", deliver: [{ type: "memoryMin", name: "energy", value: 3 }] }, scene: scenes.flow,
     starterProgram: { instructions: [move("charge"), deliver("relay"), charge(3)] },
@@ -252,16 +260,16 @@ const levelDefinitions = [
     id: 3, zone: "记忆仓 · Memory", title: "记住能量",
     story: "中继站需要 5 点能量，但记忆盒里保存的数值不够。",
     goal: "让记忆盒中的 energy 变成 5。",
-    help: "想让数值留在记忆盒里，就把它写进 energy。",
+    help: "把代码里的 energy 改成 5，让记忆盒记住这个数值。",
     hintSteps: ["记忆盒里的数字还不够。", "找到代码里的 energy，把它改成 5。", "再运行程序，看看中继站会不会亮起来。"],
-    law: "Memory", lawBeat: { type: "memory", caption: "记忆盒会留下你写进去的数值。" }, dawnProgress: 0.16,
+    law: "Memory", lawBeat: { type: "memory", caption: "记忆盒会留下你设定的数值。" }, dawnProgress: 0.16,
     memoryNames: ["energy"], worldRules: { deliver: [{ type: "memoryMin", name: "energy", value: 5 }] }, scene: scenes.memory,
     starterProgram: { instructions: [write("energy", literal(2)), deliver("relay")] },
     solution: { instructions: [write("energy", literal(5)), deliver("relay")] },
     editableSlots: [{ id: "energy", instructionId: "write_energy", path: "value.value", type: "number", label: "energy 数值", min: 0, max: 9 }],
     successInvariant: { type: "memory", energy: 5, terminal: "relay" },
     successRules: [{ type: "memoryEquals", name: "energy", value: 5 }, { type: "atNode", value: "relay" }, { type: "delivered", value: true }],
-    failureCases: [{ when: "energy below 5", message: "记忆盒里的 energy 还不够 5 点，中继站还没有恢复供电。" }],
+    failureCases: [{ when: "energy below 5", message: "记忆盒里的能量还不够 5 点，中继站还没有恢复供电。" }],
     successTitle: "记忆盒记住了 5 点能量。", successText: "中继站恢复供电。",
   },
   {
@@ -284,7 +292,7 @@ const levelDefinitions = [
     story: "判断门后有两条路，只有上面的亮路还能通行。",
     goal: "调整判断条件，让 Unit-0 走上亮路。",
     help: "先看记忆盒里的 energy，再选择合适的比较符号。",
-    hintSteps: ["现在的判断会把 Unit-0 送进暗路。", "记忆盒里的 energy 是 5，门上的数字是 8。", "试试能让 5 小于 8 成立的符号。"],
+    hintSteps: ["现在的判断会让 Unit-0 走进暗路。", "记忆盒里的 energy 是 5，门上的数字是 8。", "试试能让 5 小于 8 成立的符号。"],
     law: "Choice", lawBeat: { type: "choice", caption: "判断门会先看数字，再打开一条路。" }, dawnProgress: 0.42,
     memoryNames: ["energy"], worldRules: { deliver: [{ type: "memoryMin", name: "energy", value: 5 }] }, scene: scenes.choice,
     starterProgram: { instructions: [write("energy", literal(5)), branch(memory("energy"), ">", literal(8), "light", "dark"), deliver("relay")] },
