@@ -36,7 +36,7 @@ npm run build
 3. Memory：把 5 点 `energy` 存入记忆盒。
 4. Memory：用 `update` 将 `energy` 从 1 变成 2。
 5. Choice：让 5 点 `energy` 通过 `light`。
-6. Choice：用 `==` 识别两个 `blue` 标签。
+6. Choice：用 `label` 保存 `blue` 标签，再用 `==` 比较内容。
 7. Choice：整理写入、更新、判断和交付的顺序。
 8. Choice：让 `energy` 变成 5，走向 `dawn`，回应 `MAKE THE SUN RISE AGAIN`。
 

@@ -79,7 +79,11 @@ const WORLD_LABELS = Object.freeze({
   dawn: "晨光路",
 });
 
-const MEMORY_LABELS = Object.freeze({ cargo: "标签", energy: "energy" });
+const MEMORY_PRESENTATION = Object.freeze({
+  energy: Object.freeze({ code: "energy", world: "energy", prose: "能量" }),
+  label: Object.freeze({ code: "label", world: "标签", prose: "标签" }),
+});
+const UNKNOWN_MEMORY_PRESENTATION = Object.freeze({ world: "记忆", prose: "这项记忆" });
 
 const WORLD_TOKEN_PATTERN = /\b(?:relay_core|dock|charge|memory|gate|relay|light|dark|dawn)\b/g;
 const CODE_WORD_PATTERN = /\b(?:move|charge|pickup|deliver|write|update|branch)\b/g;
@@ -93,10 +97,10 @@ export function getWorldItemLabel(level, id) {
   return id === "relay_core" ? WORLD_LABELS.relay_core : getWorldLabel(level, id);
 }
 
-export function getMemoryLabel(name, { prose = false } = {}) {
-  if (name === "cargo") return MEMORY_LABELS.cargo;
-  if (name === "energy") return prose ? "能量" : MEMORY_LABELS.energy;
-  return name;
+export function getMemoryPresentation(name) {
+  const known = MEMORY_PRESENTATION[name];
+  if (known) return known;
+  return { code: name, ...UNKNOWN_MEMORY_PRESENTATION };
 }
 
 export function formatWorldText(level, text, { preserveCodeWords = false } = {}) {
@@ -120,18 +124,18 @@ const isEditable = (level, inst, path) => (level.editableSlots || []).some((slot
 
 function formatValue(expr) {
   if (!expr) return "?";
-  if (expr.type === "memory") return expr.name;
+  if (expr.type === "memory") return getMemoryPresentation(expr.name).code;
   if (expr.type === "literal") return typeof expr.value === "string" ? `"${expr.value}"` : String(expr.value);
   const operator = expr.type === "add" ? "+" : "-";
   return `${formatValue(expr.left)} ${operator} ${formatValue(expr.right)}`;
 }
 
 function valueParts(level, expr, edit, label) {
-  if (expr?.type === "memory") return [codeText(expr.name, "string")];
+  if (expr?.type === "memory") return [codeText(getMemoryPresentation(expr.name).code, "string")];
   if (expr?.type !== "literal") return [codeText(formatValue(expr), "string")];
   if (!edit) return [codeText(formatValue(expr), typeof expr.value === "string" ? "string" : "number")];
   if (typeof expr.value === "number") return [editable("number", expr.value, edit, { ariaLabel: label, min: 0, max: 9 })];
-  return [editable("select", expr.value, edit, { ariaLabel: label, options: ["blue", "red", "cargo"] })];
+  return [editable("select", expr.value, edit, { ariaLabel: label, options: ["blue", "red"] })];
 }
 
 function pathOptions(level) {
@@ -162,17 +166,19 @@ function codeRowsForInstruction(level, inst, index, displayLine) {
   if (inst.type === "deliver") return { rows: [{ ...base, parts: [codeText("deliver(", "fn"), codeText(`"${inst.to}"`, "string"), codeText(")", "fn")] }], next: displayLine + 1 };
   if (inst.type === "write") {
     const edit = isEditable(level, inst, "value.value") ? { instructionId: inst.id, path: "value.value" } : null;
+    const name = getMemoryPresentation(inst.name).code;
     return {
-      rows: [{ ...base, parts: [codeText(`${inst.name} = `), ...valueParts(level, inst.value, edit, `${inst.name} 数值`)] }],
+      rows: [{ ...base, parts: [codeText(`${name} = `), ...valueParts(level, inst.value, edit, `${name} 数值`)] }],
       next: displayLine + 1,
     };
   }
   if (inst.type === "update") {
     const edit = isEditable(level, inst, "value.right.value") ? { instructionId: inst.id, path: "value.right.value" } : null;
+    const name = getMemoryPresentation(inst.name).code;
     const value = inst.value.type === "add" || inst.value.type === "subtract" ? inst.value.right : inst.value;
     const operator = inst.value.type === "subtract" ? " - " : " + ";
     return {
-      rows: [{ ...base, parts: [codeText(`${inst.name} = ${inst.name}${operator}`), ...valueParts(level, value, edit, `${inst.name} 更新量`)] }],
+      rows: [{ ...base, parts: [codeText(`${name} = ${name}${operator}`), ...valueParts(level, value, edit, `${name} 更新量`)] }],
       next: displayLine + 1,
     };
   }
@@ -285,7 +291,7 @@ const levelDefinitions = [
     successInvariant: { type: "memory-update", energy: 2, terminal: "relay" },
     successRules: [{ type: "memoryEquals", name: "energy", value: 2 }, { type: "atNode", value: "relay" }, { type: "delivered", value: true }],
     failureCases: [{ when: "update amount is 0", message: "energy 还是 1，记忆盒里的数值没有变。" }],
-    successTitle: "能量增加了。", successText: "energy 从 1 变成了 2。",
+    successTitle: "能量增加了。", successText: "能量从 1 变成了 2。",
   },
   {
     id: 5, zone: "判断门 · Choice", title: "打开亮路",
@@ -309,13 +315,13 @@ const levelDefinitions = [
     goal: "让判断门认出这两个标签相同。",
     help: "这里比较的是标签内容，不是数字大小。",
     hintSteps: ["blue 是文字，不是数字。", "让两边都显示 blue。", "选择表示“相同”的比较符号。"],
-    dawnProgress: 0.52, memoryNames: ["cargo"], worldRules: {}, scene: scenes.choice,
-    starterProgram: { instructions: [write("cargo", literal("blue")), branch(memory("cargo"), ">", literal("blue"), "light", "dark"), deliver("relay")] },
-    solution: { instructions: [write("cargo", literal("blue")), branch(memory("cargo"), "==", literal("blue"), "light", "dark"), deliver("relay")] },
+    dawnProgress: 0.52, memoryNames: ["label"], worldRules: {}, scene: scenes.choice,
+    starterProgram: { instructions: [write("label", literal("blue")), branch(memory("label"), ">", literal("blue"), "light", "dark"), deliver("relay")] },
+    solution: { instructions: [write("label", literal("blue")), branch(memory("label"), "==", literal("blue"), "light", "dark"), deliver("relay")] },
     editableSlots: [{ id: "operator", instructionId: "branch_gate", path: "operator", type: "select", label: "比较符号", options: [">", "<", "=="] }],
-    successInvariant: { type: "choice-cargo", operator: "==", path: "light", terminal: "relay" },
+    successInvariant: { type: "choice-label", operator: "==", path: "light", terminal: "relay" },
     successRules: [{ type: "branchTaken", value: "light" }, { type: "atNode", value: "relay" }, { type: "delivered", value: true }],
-    failureCases: [{ when: "cargo mismatch", message: "这是文字标签，不能比较谁大谁小。" }],
+    failureCases: [{ when: "label mismatch", message: "这是文字标签，不能比较谁大谁小。" }],
     successTitle: "标签匹配。", successText: "标签匹配，亮路打开了。",
   },
   {

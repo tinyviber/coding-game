@@ -72,7 +72,7 @@ test("第 4、6 关的可见运行文案不泄漏内部变量名", async ({ page
   await page.locator("#resetButton").click();
   await control(page, "update_energy", "input").fill("1");
   await page.locator("#runButton").click();
-  await expect(page.locator("#runtimeMessage")).toContainText("energy 从 1 变成了 2");
+  await expect(page.locator("#runtimeMessage")).toContainText("能量从 1 变成了 2");
   await expect(page.locator("#runtimeMessage")).not.toContainText(/\bupdate\b/i);
   await finishLevel(page);
 
@@ -81,9 +81,18 @@ test("第 4、6 关的可见运行文案不泄漏内部变量名", async ({ page
   await finishLevel(page);
 
   await control(page, "branch_gate", "select").selectOption("==");
+  const levelSixCode = await page.locator("#codeLines").innerText();
+  expect(levelSixCode).toContain('label = "blue"');
+  const levelSixBranch = await row(page, "branch_gate").first().innerText();
+  expect(levelSixBranch).toMatch(/if\s+label/);
+  expect(levelSixBranch).toContain("==");
+  expect(levelSixBranch).toContain('"blue"');
+  expect(levelSixCode).not.toMatch(/\bcargo\b/i);
   await page.locator("#runButton").click();
   await expect(page.locator("#worldMirror")).toHaveAttribute("data-phase", "success", { timeout: 15_000 });
+  await expect(page.locator("#worldMirror")).toHaveAttribute("data-memory", "label=blue");
   await expect(page.locator("#worldMirror")).toContainText("标签");
+  await expect(page.locator("#worldMirror")).toContainText("标签=blue");
 
   for (const selector of ["#runtimeMessage", "#eventText", "#worldMirror"]) {
     const text = await page.locator(selector).textContent();

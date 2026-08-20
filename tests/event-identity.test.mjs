@@ -85,3 +85,31 @@ test("dynamic path expansion keeps semantic IDs stable across repeated runs", as
   assert.ok(dynamic.every((event) => typeof event.id === "string" && !/^\d+$/.test(event.id)));
   assert.equal(new Set(first.events.map((event) => event.id)).size, first.events.length);
 });
+
+test("Level 6 preserves event kind order and semantic payload across repeated runs", async () => {
+  const level = levels[5];
+  const first = new Runtime(level, cloneProgram(level.solution));
+  const second = new Runtime(level, cloneProgram(level.solution));
+  await runToTerminal(first);
+  await runToTerminal(second);
+
+  const semanticEvents = (runtime) => runtime.events.map(({ kind, payload }) => ({ kind, payload }));
+  const firstSemantic = semanticEvents(first);
+  assert.deepEqual(firstSemantic, semanticEvents(second));
+  assert.deepEqual(firstSemantic.map((event) => event.kind), [
+    "traverse",
+    "store-memory",
+    "store-memory",
+    "load-memory",
+    "token-traverse",
+    "gate-receive",
+    "gate-compare",
+    "gate-route",
+    "gate-consume",
+    "traverse",
+    "traverse",
+    "traverse",
+    "deliver",
+  ]);
+  assert.doesNotMatch(JSON.stringify(firstSemantic), /\bcargo\b/i);
+});

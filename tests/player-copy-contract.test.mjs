@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cloneProgram, getLevels } from "../src/levels.js";
+import { cloneProgram, getLevels, getMemoryPresentation } from "../src/levels.js";
 import { Runtime } from "../src/runtime.js";
 
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -138,7 +138,7 @@ test("Level 4 keeps the calculation event human-facing and its failure copy free
   const observations = runStepwise(successRuntime);
   const calculation = observations.find(({ kind }) => kind === "calculate");
   assert.ok(calculation, "Level 4 solution should expose a calculation event");
-  assert.equal(calculation.event, "energy 从 1 变成 2");
+  assert.equal(calculation.event, "能量 从 1 变成 2");
   assert.doesNotMatch(calculation.event, /\bupdate\b/i);
 
   const failureRuntime = new Runtime(levels[3], cloneProgram(levels[3].starterProgram));
@@ -151,10 +151,14 @@ test("Level 4 keeps the calculation event human-facing and its failure copy free
 
 test("Level 6 keeps labels natural on success and on an empty-memory failure", () => {
   const level = levels[5];
+  assert.deepEqual(level.memoryNames, ["label"]);
   const successRuntime = new Runtime(level, cloneProgram(level.solution));
   const successState = successRuntime.runToEnd();
   assert.equal(successState.phase, "success");
-  assert.match(successState.event, /标签|亮路/);
+  assert.equal(successState.vars.label, "blue");
+  assert.doesNotMatch(JSON.stringify(successRuntime.events), /\bcargo\b/i);
+  assert.doesNotMatch(JSON.stringify(successState), /\bcargo\b/i);
+  assert.match(successState.event, new RegExp(getMemoryPresentation("label").prose));
   assertNaturalRuntimeCopy(successState.event, "level 6 success event");
 
   const emptyMemoryRuntime = new Runtime(level, {
@@ -162,7 +166,7 @@ test("Level 6 keeps labels natural on success and on an empty-memory failure", (
       {
         id: "branch_gate",
         type: "branch",
-        left: { type: "memory", name: "cargo" },
+        left: { type: "memory", name: "label" },
         operator: "==",
         right: { type: "literal", value: "blue" },
         pass: "light",
@@ -173,6 +177,7 @@ test("Level 6 keeps labels natural on success and on an empty-memory failure", (
   });
   const failureState = emptyMemoryRuntime.runToEnd();
   assert.equal(failureState.phase, "error");
+  assert.match(failureState.error, new RegExp(getMemoryPresentation("label").prose));
   assert.match(failureState.error, /空|没有/);
   assertNaturalRuntimeCopy(failureState.error, "level 6 empty-memory error");
   assertNaturalRuntimeCopy(failureState.event, "level 6 empty-memory event");
