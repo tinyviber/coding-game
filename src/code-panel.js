@@ -29,6 +29,7 @@ export class CodePanel {
     this.root.replaceChildren();
     this.root.dataset.locked = String(this.locked);
     this.root.setAttribute("aria-readonly", String(this.locked));
+    if (state.suppressRows) return;
     level.code(program).forEach((line) => this.renderLine(line));
     this.root.querySelectorAll("input, select, button").forEach((control) => {
       if (this.locked) control.disabled = true;

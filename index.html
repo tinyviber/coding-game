@@ -25,8 +25,48 @@
             <div class="brand-sub">把机械小镇修到天亮</div>
           </div>
         </div>
-          <div class="mission-chip"><span class="pulse-dot"></span><span id="runStatus">准备好了</span></div>
+          <div class="topbar-actions">
+            <button id="mapButton" class="map-button" type="button" aria-haspopup="dialog">关卡地图</button>
+            <div class="mission-chip"><span class="pulse-dot"></span><span id="runStatus">准备好了</span></div>
+          </div>
       </header>
+
+      <div id="levelMapDialog" class="map-dialog" role="dialog" aria-modal="true" aria-labelledby="mapTitle" aria-hidden="true" hidden>
+        <div class="map-dialog-panel">
+          <div class="map-dialog-head">
+            <div>
+              <div class="eyebrow">选择修复任务</div>
+              <h2 id="mapTitle">关卡地图</h2>
+            </div>
+            <button id="mapCloseButton" class="map-close-button" type="button" aria-label="关闭关卡地图">×</button>
+          </div>
+          <div class="map-groups">
+            <section class="map-group" role="group" aria-labelledby="mapFlowTitle">
+              <h3 id="mapFlowTitle">Flow</h3>
+              <div class="map-level-list">
+                <button class="map-level-button" type="button" data-level-id="1"><span>01 · 唤醒轨道</span><span class="map-status" data-map-status></span></button>
+                <button class="map-level-button" type="button" data-level-id="2"><span>02 · 遗失的核心</span><span class="map-status" data-map-status></span></button>
+              </div>
+            </section>
+            <section class="map-group" role="group" aria-labelledby="mapMemoryTitle">
+              <h3 id="mapMemoryTitle">Memory</h3>
+              <div class="map-level-list">
+                <button class="map-level-button" type="button" data-level-id="3"><span>03 · 记住能量</span><span class="map-status" data-map-status></span></button>
+                <button class="map-level-button" type="button" data-level-id="4"><span>04 · 增加能量</span><span class="map-status" data-map-status></span></button>
+              </div>
+            </section>
+            <section class="map-group" role="group" aria-labelledby="mapChoiceTitle">
+              <h3 id="mapChoiceTitle">Choice</h3>
+              <div class="map-level-list">
+                <button class="map-level-button" type="button" data-level-id="5"><span>05 · 打开亮路</span><span class="map-status" data-map-status></span></button>
+                <button class="map-level-button" type="button" data-level-id="6"><span>06 · 匹配标签</span><span class="map-status" data-map-status></span></button>
+                <button class="map-level-button" type="button" data-level-id="7"><span>07 · 修好控制程序</span><span class="map-status" data-map-status></span></button>
+                <button class="map-level-button" type="button" data-level-id="8"><span>08 · 唤醒中央塔</span><span class="map-status" data-map-status></span></button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
 
       <main class="game-grid">
         <section class="world-panel panel">
@@ -40,7 +80,7 @@
           <div class="story-line" id="storyLine">死寂的轨道下，一盏小灯闪了一下。</div>
           <div class="canvas-wrap">
             <canvas id="worldCanvas" aria-label="机械小镇的世界地图"></canvas>
-            <div id="sceneCaption" class="scene-caption" aria-live="polite"></div>
+            <div id="sceneCaption" class="scene-caption" aria-live="polite" hidden></div>
             <div class="canvas-hud hud-left"><span class="hud-key">任务</span><span id="goalText">观察世界中还在回应零号车的地方。</span></div>
             <div class="canvas-hud hud-right"><span class="hud-key">现在</span><span id="eventText">等待操作。</span></div>
           </div>

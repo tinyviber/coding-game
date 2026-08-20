@@ -1,6 +1,7 @@
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 export const MAX_EVENTS = 64;
+export const LEVEL_IDS = Object.freeze([1, 2, 3, 4, 5, 6, 7, 8]);
 
 export const literal = (value) => ({ type: "literal", value });
 export const memory = (name) => ({ type: "memory", name });
@@ -458,8 +459,17 @@ function finishLevels() {
 }
 
 const levels = finishLevels();
+const levelsById = new Map(levels.map((level) => [level.id, level]));
 
 export function getLevels() { return levels; }
+export function getLevelById(levelId) {
+  return Number.isInteger(levelId) ? levelsById.get(levelId) : undefined;
+}
+export function getNextLevelId(levelId) {
+  const index = LEVEL_IDS.indexOf(levelId);
+  return index === -1 ? undefined : LEVEL_IDS[(index + 1) % LEVEL_IDS.length];
+}
+// Kept for older non-production callers. Production routing uses the stable ID APIs above.
 export function getLevel(index) { return levels[index]; }
 export function getScene(level) { return level.scene; }
 export function createProgram(level) { return clone(level.starterProgram); }

@@ -21,10 +21,9 @@ export class IntroSequence {
     button?.addEventListener("click", () => this.finish());
   }
 
-  show() {
-    let seen = false;
-    try { seen = globalThis.sessionStorage?.getItem("unit0-intro-seen") === "1"; } catch {}
-    if (seen) return false;
+  show(options = {}) {
+    const seen = typeof options === "boolean" ? options : Boolean(options?.seen);
+    if (seen || !this.overlay || !this.canvas) return false;
     this.finished = false;
     this.started = clock();
     this.overlay.hidden = false;
@@ -42,7 +41,6 @@ export class IntroSequence {
       if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(this.frame);
       else clearTimeout(this.frame);
     }
-    try { globalThis.sessionStorage?.setItem("unit0-intro-seen", "1"); } catch {}
     this.overlay.classList.remove("active");
     this.overlay.hidden = true;
     this.overlay.setAttribute("aria-busy", "false");

@@ -30,6 +30,7 @@ export class WorldView {
     this.lastState = null;
     this.beat = null;
     this.beatFrame = 0;
+    this.beatToken = null;
     if (typeof globalThis.ResizeObserver === "function") {
       this.resizeObserver = new ResizeObserver(() => this.resize());
       this.resizeObserver.observe(canvas);
@@ -195,15 +196,34 @@ export class WorldView {
 
   playBeat(level, beat, onDone) {
     if (!beat) return;
+    this.stopBeat();
     this.beat = { ...beat, started: now(), duration: beat.duration || 2200 };
     const beatRef = this.beat;
+    const beatToken = {};
+    this.beatToken = beatToken;
     const tick = () => {
-      if (!this.beat || this.beat !== beatRef) return;
-      if (now() - this.beat.started >= this.beat.duration) { this.beat = null; this.beatFrame = 0; this.render(level, this.lastState || {}); onDone?.(); return; }
+      if (!this.beat || this.beat !== beatRef || this.beatToken !== beatToken) return;
+      if (now() - this.beat.started >= this.beat.duration) {
+        this.beat = null;
+        this.beatToken = null;
+        this.beatFrame = 0;
+        this.render(level, this.lastState || {});
+        onDone?.();
+        return;
+      }
       this.render(level, this.lastState || {});
       this.beatFrame = typeof requestAnimationFrame === "function" ? requestAnimationFrame(tick) : setTimeout(tick, 32);
     };
-    if (this.beatFrame) { if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(this.beatFrame); else clearTimeout(this.beatFrame); }
     tick();
+  }
+
+  stopBeat() {
+    if (this.beatFrame) {
+      if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(this.beatFrame);
+      else clearTimeout(this.beatFrame);
+    }
+    this.beatFrame = 0;
+    this.beat = null;
+    this.beatToken = null;
   }
 }
