@@ -30,6 +30,10 @@ function row(page, instruction) {
   return page.locator(`#codeLines .code-line[data-instruction-id="${instruction}"]`);
 }
 
+function control(page, instruction, selector = "input, select", index = 0) {
+  return row(page, instruction).locator(selector).nth(index);
+}
+
 async function moveRow(page, instruction, direction, times = 1) {
   for (let index = 0; index < times; index += 1) {
     await row(page, instruction).locator(`button[aria-label="${direction === "up" ? "上移这一行" : "下移这一行"}"]`).click();
@@ -79,6 +83,7 @@ test.describe("Unit-0 真实交互 vertical slice", () => {
   test("从第 1 关完整玩到第 8 关，最后才出现日出", async ({ page }) => {
     await fresh(page);
     await enterAndWait(page);
+    await expect(page.locator("#codeLines")).not.toContainText("read(");
 
     await moveRow(page, "charge_station", "up");
     await page.locator("#runButton").click();
@@ -86,52 +91,55 @@ test.describe("Unit-0 真实交互 vertical slice", () => {
     await page.locator("#cardNextButton").click();
     await enterAndWait(page);
 
-    await moveRow(page, "pickup_signal", "up");
+    await expect(page.locator("#codeLines")).toContainText('pickup("relay_core")');
+    await expect(page.locator("#codeLines")).not.toContainText("read(");
+    await moveRow(page, "pickup_relay_core", "up", 2);
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await page.locator("#cardNextButton").click();
     await enterAndWait(page);
 
-    await page.getByLabel("能量数值").fill("5");
+    await control(page, "write_energy", "input").fill("5");
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await page.locator("#cardNextButton").click();
     await enterAndWait(page);
 
-    await page.getByLabel("更新幅度").fill("1");
+    await control(page, "update_energy", "input").fill("1");
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await page.locator("#cardNextButton").click();
     await enterAndWait(page);
 
-    await page.getByLabel("比较方式").selectOption("<");
-    await page.locator("#runButton").click();
-    await waitSuccess(page);
-    await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "false");
-    await page.locator("#cardNextButton").click();
-    await enterAndWait(page);
-
-    await page.getByLabel("比较方式").selectOption("==");
+    await control(page, "branch_gate", "select").selectOption("<");
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "false");
     await page.locator("#cardNextButton").click();
     await enterAndWait(page);
 
-    await page.getByLabel("更新幅度").fill("3");
-    await page.getByLabel("成立路线").selectOption("light");
-    await moveRow(page, "branch_gate", "down", 2);
+    await control(page, "branch_gate", "select").selectOption("==");
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "false");
     await page.locator("#cardNextButton").click();
     await enterAndWait(page);
 
-    await page.getByLabel("更新幅度").fill("4");
-    await page.getByLabel("成立路线").selectOption("dawn");
+    await control(page, "update_energy", "input").fill("3");
+    await row(page, "branch_gate").getByLabel("成立路线").selectOption("light");
+    await moveRow(page, "branch_gate", "down");
+    await page.locator("#runButton").click();
+    await waitSuccess(page);
+    await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "false");
+    await page.locator("#cardNextButton").click();
+    await enterAndWait(page);
+
+    await control(page, "update_energy", "input").fill("4");
+    await control(page, "branch_gate", "select", 0).selectOption(">");
+    await control(page, "branch_gate", "input").fill("3");
+    await control(page, "branch_gate", "select", 1).selectOption("dawn");
     await moveRow(page, "write_energy", "up");
     await moveRow(page, "update_energy", "up");
-    await moveRow(page, "branch_gate", "down", 2);
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "true");
@@ -142,7 +150,7 @@ test.describe("Unit-0 真实交互 vertical slice", () => {
     await fresh(page);
     await enterAndWait(page);
     const viewport = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
-    expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.width + 1);
+    expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.width);
     await expect(page.locator("#worldMirror")).toHaveAttribute("aria-live", "polite");
     await expect(page.locator("#worldMirror")).toBeAttached();
   });

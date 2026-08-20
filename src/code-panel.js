@@ -38,9 +38,10 @@ export class CodePanel {
   renderLine(line) {
     const row = document.createElement("div");
     row.className = "code-line";
-    row.dataset.line = String(line.line);
+    row.dataset.line = String(line.displayLine || line.line);
     row.dataset.instruction = line.instructionType || "";
     row.dataset.instructionId = line.instructionId || "";
+    row.dataset.displayOnly = String(Boolean(line.displayOnly));
     if (this.state.activeLine === line.line && ["demo", "running", "paused"].includes(this.state.phase)) row.classList.add("current");
     if (this.state.activeLine > line.line && !["idle", "demo"].includes(this.state.phase)) row.classList.add("completed");
 
@@ -55,7 +56,7 @@ export class CodePanel {
     (line.parts || [{ text: line.text || "", tone: line.tone || "" }]).forEach((part) => text.append(this.renderPart(part)));
     row.append(text);
 
-    if (line.orderKey === "instructions") {
+    if (line.orderKey === "instructions" && !line.displayOnly) {
       const controls = document.createElement("span");
       controls.className = "order-controls";
       const index = line.orderIndex;
@@ -121,7 +122,7 @@ export class CodePanel {
     button.type = "button";
     button.textContent = label;
     button.disabled = disabled;
-    button.setAttribute("aria-label", label === "↑" ? "Move line up" : "Move line down");
+    button.setAttribute("aria-label", label === "↑" ? "上移这一行" : "下移这一行");
     button.addEventListener("click", onClick);
     return button;
   }

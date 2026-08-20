@@ -7,11 +7,11 @@ function roundRect(ctx, x, y, width, height, radius) {
 }
 
 export class IntroSequence {
-  constructor(overlay, canvas, caption, signal, button, onDone, focusTarget) {
+  constructor(overlay, canvas, caption, promise, button, onDone, focusTarget) {
     this.overlay = overlay;
     this.canvas = canvas;
     this.caption = caption;
-    this.signal = signal;
+    this.promise = promise;
     this.button = button;
     this.onDone = onDone;
     this.focusTarget = focusTarget;
@@ -68,7 +68,7 @@ export class IntroSequence {
     const ctx = this.canvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const wake = Math.max(0, Math.min(1, (elapsed - 1.7) / 2));
-    const signal = Math.max(0, Math.min(1, (elapsed - 3.5) / 1.2));
+    const promiseGlow = Math.max(0, Math.min(1, (elapsed - 3.5) / 1.2));
     // Intro promises daylight; it must not reveal the payoff before level 8 succeeds.
     const horizonGlow = Math.max(0, Math.min(1, (elapsed - 3.5) / 3.5));
     const top = `rgb(${17 + Math.round(8 * horizonGlow)}, ${27 + Math.round(7 * horizonGlow)}, ${52 + Math.round(9 * horizonGlow)})`;
@@ -107,12 +107,12 @@ export class IntroSequence {
     ctx.strokeStyle = "#14253d"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(0, -30); ctx.stroke();
     ctx.fillStyle = wake > .4 ? "#ffd36e" : "#607993"; ctx.beginPath(); ctx.arc(0, -32, 4 + wake * 3, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    if (signal > 0) {
+    if (promiseGlow > 0) {
       const towerX = width * .76;
-      ctx.strokeStyle = `rgba(255, 235, 169, ${signal})`; ctx.lineWidth = 3;
+      ctx.strokeStyle = `rgba(255, 235, 169, ${promiseGlow})`; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(towerX, height * .72); ctx.lineTo(towerX, height * .22); ctx.stroke();
-      ctx.fillStyle = `rgba(255, 235, 169, ${signal})`; ctx.shadowColor = "rgba(255, 235, 169, .8)"; ctx.shadowBlur = 24;
-      ctx.beginPath(); ctx.arc(towerX, height * .2, 13 + signal * 8, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = `rgba(255, 235, 169, ${promiseGlow})`; ctx.shadowColor = "rgba(255, 235, 169, .8)"; ctx.shadowBlur = 24;
+      ctx.beginPath(); ctx.arc(towerX, height * .2, 13 + promiseGlow * 8, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
     }
     if (horizonGlow > 0) {
       ctx.save();
@@ -125,6 +125,6 @@ export class IntroSequence {
     }
     this.caption.textContent = elapsed < 1.7 ? "夜里，机械城停止呼吸。" : elapsed < 3.5 ? "一条紧急线路，唤醒沉睡的零号车。" : elapsed < 5.2 ? "中央塔发来最后一句请求：" : "让太阳再次升起";
     this.caption.dataset.final = elapsed >= 5.2 ? "true" : "false";
-    this.signal.textContent = elapsed >= 3.5 ? "让太阳再次升起" : "";
+    this.promise.textContent = elapsed >= 3.5 ? "让太阳再次升起" : "";
   }
 }

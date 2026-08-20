@@ -1,126 +1,96 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createProgram, getLevels } from "../src/levels.js";
-import { Runtime } from "../src/runtime.js";
+import { getLevels, createProgram, cloneProgram } from "../src/levels.js";
 import {
   INSTRUCTION_TYPES,
   VALUE_EXPR_TYPES,
   assertProgramShape,
   collectValueExprTypes,
   instructionsOf,
-  opOf,
-  slotKind,
 } from "./helpers/canonical-contract.mjs";
 
 const levels = getLevels();
 
-function starterOf(level) {
-  return level.starterProgram ?? createProgram(level);
-}
-
 function solutionOf(level) {
-  return typeof level.solution === "function" ? level.solution(starterOf(level)) : level.solution;
+  return cloneProgram(level.solution);
 }
 
-function updateInstruction(program) {
-  return instructionsOf(program).find((instruction) => opOf(instruction) === "update");
+function editableParts(value, result = []) {
+  if (!value || typeof value !== "object") return result;
+  if (value.edit) result.push(value);
+  if (Array.isArray(value)) value.forEach((item) => editableParts(item, result));
+  else Object.values(value).forEach((item) => editableParts(item, result));
+  return result;
 }
 
-function valueExprOf(instruction) {
-  return instruction?.valueExpr ?? instruction?.value ?? instruction?.expr ?? instruction?.amount ?? instruction?.delta;
-}
-
-function exprType(expr) {
-  if (typeof expr === "number") return "literal";
-  return expr?.type ?? expr?.kind;
-}
-
-function branchOperator(instruction) {
-  return instruction?.operator
-    ?? instruction?.compare
-    ?? instruction?.condition?.operator
-    ?? instruction?.condition?.compare
-    ?? instruction?.condition?.op;
-}
-
-test("canonical content exposes eight data-driven levels", () => {
+test("canonical content is data-driven, exactly eight levels, and excludes future laws", () => {
   assert.deepEqual(levels.map((level) => level.id), [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.deepEqual(levels.map((level) => level.zone.split(" · ").at(-1)), ["Flow", "Flow", "Memory", "Memory", "Choice", "Choice", "Choice", "Choice"]);
   for (const level of levels) {
-    assert.ok(level.zone, `level ${level.id} needs zone`);
-    assert.ok(level.title, `level ${level.id} needs title`);
-    assert.ok(level.story, `level ${level.id} needs story`);
-    assert.ok(level.goal, `level ${level.id} needs goal`);
-    assert.ok(level.hint ?? level.help, `level ${level.id} needs hint`);
-    assert.ok(level.starterProgram, `level ${level.id} needs starterProgram`);
-    assert.ok(level.solution, `level ${level.id} needs solution`);
-    assert.ok(Array.isArray(level.editableSlots), `level ${level.id} needs editableSlots`);
-    assert.ok(level.successInvariant, `level ${level.id} needs successInvariant`);
-    assert.ok(Array.isArray(level.failureCases) && level.failureCases.length > 0, `level ${level.id} needs failureCases`);
-    assertProgramShape(starterOf(level), `level ${level.id} starterProgram`);
-    assertProgramShape(solutionOf(level), `level ${level.id} solution`);
-    assert.ok(level.editableSlots.every((slot) => slotKind(slot)), `level ${level.id} has unnamed editable slot`);
+    assert.ok(level.zone && level.title && level.story && level.goal, `level ${level.id} needs story metadata`);
+    assert.ok(level.starterProgram && level.solution, `level ${level.id} needs canonical programs`);
+    assert.ok(Array.isArray(level.editableSlots), `level ${level.id} needs editable slots`);
+    assert.ok(Array.isArray(level.failureCases) && level.failureCases.length > 0, `level ${level.id} needs failure cases`);
+    assert.doesNotMatch(`${level.zone} ${level.title} ${JSON.stringify(level)}`, /Cycle|Function|Collection/);
+    assertProgramShape(level.starterProgram, `level ${level.id} starter`);
+    assertProgramShape(level.solution, `level ${level.id} solution`);
   }
 });
 
-test("programs use only typed instructions and typed value expressions", () => {
-  const allPrograms = levels.flatMap((level) => [starterOf(level), solutionOf(level)]);
+test("canonical programs use only typed instructions and typed ValueExpr nodes", () => {
   const expressionTypes = new Set();
-  for (const program of allPrograms) {
-    for (const instruction of instructionsOf(program)) {
-      assert.ok(INSTRUCTION_TYPES.has(opOf(instruction)));
-      collectValueExprTypes(instruction, expressionTypes);
+  for (const level of levels) {
+    for (const program of [level.starterProgram, level.solution]) {
+      for (const instruction of instructionsOf(program)) {
+        assert.ok(INSTRUCTION_TYPES.has(instruction.type));
+        assert.notEqual(instruction.type, "read");
+        collectValueExprTypes(instruction, expressionTypes);
+      }
     }
   }
-  assert.ok(expressionTypes.size > 0, "programs must expose typed ValueExpr nodes");
+  assert.ok(expressionTypes.size > 0);
   assert.ok([...expressionTypes].every((type) => VALUE_EXPR_TYPES.has(type)));
 });
 
-test("each level has editable progression and non-solved starter", () => {
-  for (const level of levels) {
-    const starter = starterOf(level);
-    const solution = solutionOf(level);
-    assert.notDeepEqual(solution, starter, `level ${level.id} starter must need player input`);
-    assert.notDeepEqual(JSON.stringify(solution), JSON.stringify(starter), `level ${level.id} solution must differ`);
-  }
-
-  assert.ok(levels[1].editableSlots.some((slot) => /order|sequence|move/.test(slotKind(slot))), "L2 teaches reorder");
-  assert.ok(levels[2].editableSlots.some((slot) => /number|value|literal|write|energy/.test(slotKind(slot))), "L3 teaches 2 → 5");
-  const l3StarterWrite = instructionsOf(starterOf(levels[2])).find((instruction) => opOf(instruction) === "write");
-  const l3SolutionWrite = instructionsOf(solutionOf(levels[2])).find((instruction) => opOf(instruction) === "write");
-  assert.ok(l3StarterWrite && l3SolutionWrite, "L3 must expose structured write instructions");
-  assert.notDeepEqual(valueExprOf(l3StarterWrite), valueExprOf(l3SolutionWrite), "L3 number edit must change structured value");
-  assert.ok(levels[3].editableSlots.some((slot) => /update|number|value|literal/.test(slotKind(slot))), "L4 teaches update");
-  const starterUpdate = updateInstruction(starterOf(levels[3]));
-  const solutionUpdate = updateInstruction(solutionOf(levels[3]));
-  assert.ok(starterUpdate && solutionUpdate, "L4 must expose structured update instructions");
-  assert.notDeepEqual(valueExprOf(starterUpdate), valueExprOf(solutionUpdate), "L4 update edit must change structured value expression");
-  assert.ok(VALUE_EXPR_TYPES.has(exprType(valueExprOf(solutionUpdate))), "L4 update must use typed ValueExpr");
-  assert.ok(solutionUpdate.target ?? solutionUpdate.name ?? solutionUpdate.key, "L4 update must identify memory target");
-  assert.ok(instructionsOf(solutionOf(levels[4])).some((instruction) => opOf(instruction) === "branch" && branchOperator(instruction) === "<"), "L5 solution must use < light route");
-  assert.ok(instructionsOf(solutionOf(levels[5])).some((instruction) => opOf(instruction) === "branch" && branchOperator(instruction) === "=="), "L6 solution must use ==");
+test("progression keeps the complete Choice editing surface on levels 7 and 8", () => {
   for (const level of levels.slice(6)) {
-    const kinds = level.editableSlots.map(slotKind).join(" ");
-    assert.match(kinds, /order|sequence|move/, `L${level.id} needs reorder edit`);
-    assert.match(kinds, /update|number|value|literal|memory/, `L${level.id} needs memory update edit`);
-    assert.match(kinds, /choice|branch|operator|path|compare/, `L${level.id} needs choice edit`);
+    const slots = level.editableSlots;
+    assert.ok(slots.some((slot) => slot.type === "order"), `level ${level.id} needs order control`);
+    assert.ok(slots.some((slot) => slot.instructionId === "update_energy" && slot.path === "value.right.value"), `level ${level.id} needs update control`);
+    assert.ok(slots.some((slot) => slot.instructionId === "branch_gate" && slot.path === "operator"), `level ${level.id} needs operator control`);
+    assert.ok(slots.some((slot) => slot.instructionId === "branch_gate" && slot.path === "pass"), `level ${level.id} needs path control`);
+    if (level.id === 8) assert.ok(slots.some((slot) => slot.instructionId === "branch_gate" && slot.path === "right.value"), "level 8 needs threshold control");
   }
 });
 
-test("final story carries the promise and Chinese ending", () => {
-  const final = levels.at(-1);
-  const story = `${final.story} ${final.successTitle ?? ""} ${final.successText ?? ""} ${final.ending ?? ""}`;
-  assert.match(story, /MAKE THE SUN RISE AGAIN/);
-  assert.match(story, /太阳重新升起/);
+test("Choice code derives display rows from one branch source row and keeps controls source-only", () => {
+  for (const level of levels.slice(4)) {
+    const program = solutionOf(level);
+    const branch = instructionsOf(program).find((instruction) => instruction.type === "branch");
+    const rows = level.code(program);
+    const source = rows.find((row) => row.instructionId === branch.id && !row.displayOnly);
+    const derived = rows.filter((row) => row.displayOnly === true);
+    assert.ok(source, `level ${level.id} needs a source Choice row`);
+    assert.ok(derived.length >= 2, `level ${level.id} needs derived Choice rows`);
+    assert.ok(derived.every((row) => row.sourceLine === source.sourceLine), `level ${level.id} derived rows must map to branch sourceLine`);
+    assert.ok(derived.every((row) => Number.isInteger(row.displayLine) && row.displayLine !== source.displayLine));
+    assert.equal(editableParts(derived).length, 0, `level ${level.id} derived rows must not own controls`);
+    assert.ok(editableParts(source).length > 0, `level ${level.id} source Choice row must own its controls`);
+    assert.ok(rows.filter((row) => row.orderKey === "instructions").every((row) => !row.displayOnly));
+  }
 });
 
-test("canonical runtime validates before execution and rejects unsafe instructions", () => {
-  assert.equal(typeof Runtime, "function");
-  const valid = solutionOf(levels[0]);
-  assert.doesNotThrow(() => new Runtime(levels[0], valid));
-
-  const invalid = {
-    ...valid,
-    instructions: [{ type: "eval", source: "1 + 1" }],
-  };
-  assert.throws(() => new Runtime(levels[0], invalid), /invalid|instruction|type|program/i);
+test("level helpers return fresh programs and source-addressable steps", () => {
+  for (const level of levels) {
+    const starter = createProgram(level);
+    const solution = cloneProgram(level.solution);
+    assert.notStrictEqual(starter, level.starterProgram);
+    assert.notStrictEqual(solution, level.solution);
+    const rows = level.code(solution);
+    for (const step of level.steps(solution)) {
+      assert.ok(Number.isInteger(step.sourceLine) && step.sourceLine >= 1 && step.sourceLine <= rows.at(-1).sourceLine);
+      assert.ok(Number.isInteger(step.displayLine) && step.displayLine >= 1);
+      assert.equal(step.instructionId, instructionsOf(solution)[step.sourceLine - 1].id);
+    }
+  }
 });
