@@ -79,6 +79,12 @@ const WORLD_LABELS = Object.freeze({
   dawn: "晨光路",
 });
 
+const MEMORY_PRESENTATION = Object.freeze({
+  energy: Object.freeze({ code: "energy", world: "energy", prose: "能量" }),
+  label: Object.freeze({ code: "label", world: "标签", prose: "标签" }),
+});
+const UNKNOWN_MEMORY_PRESENTATION = Object.freeze({ world: "记忆", prose: "这项记忆" });
+
 const WORLD_TOKEN_PATTERN = /\b(?:relay_core|dock|charge|memory|gate|relay|light|dark|dawn)\b/g;
 const CODE_WORD_PATTERN = /\b(?:move|charge|pickup|deliver|write|update|branch)\b/g;
 
@@ -89,6 +95,12 @@ export function getWorldLabel(level, id) {
 
 export function getWorldItemLabel(level, id) {
   return id === "relay_core" ? WORLD_LABELS.relay_core : getWorldLabel(level, id);
+}
+
+export function getMemoryPresentation(name) {
+  const known = MEMORY_PRESENTATION[name];
+  if (known) return known;
+  return { code: name, ...UNKNOWN_MEMORY_PRESENTATION };
 }
 
 export function formatWorldText(level, text, { preserveCodeWords = false } = {}) {
@@ -112,18 +124,18 @@ const isEditable = (level, inst, path) => (level.editableSlots || []).some((slot
 
 function formatValue(expr) {
   if (!expr) return "?";
-  if (expr.type === "memory") return expr.name;
+  if (expr.type === "memory") return getMemoryPresentation(expr.name).code;
   if (expr.type === "literal") return typeof expr.value === "string" ? `"${expr.value}"` : String(expr.value);
   const operator = expr.type === "add" ? "+" : "-";
   return `${formatValue(expr.left)} ${operator} ${formatValue(expr.right)}`;
 }
 
 function valueParts(level, expr, edit, label) {
-  if (expr?.type === "memory") return [codeText(expr.name, "string")];
+  if (expr?.type === "memory") return [codeText(getMemoryPresentation(expr.name).code, "string")];
   if (expr?.type !== "literal") return [codeText(formatValue(expr), "string")];
   if (!edit) return [codeText(formatValue(expr), typeof expr.value === "string" ? "string" : "number")];
   if (typeof expr.value === "number") return [editable("number", expr.value, edit, { ariaLabel: label, min: 0, max: 9 })];
-  return [editable("select", expr.value, edit, { ariaLabel: label, options: ["blue", "red", "cargo"] })];
+  return [editable("select", expr.value, edit, { ariaLabel: label, options: ["blue", "red"] })];
 }
 
 function pathOptions(level) {
@@ -154,17 +166,19 @@ function codeRowsForInstruction(level, inst, index, displayLine) {
   if (inst.type === "deliver") return { rows: [{ ...base, parts: [codeText("deliver(", "fn"), codeText(`"${inst.to}"`, "string"), codeText(")", "fn")] }], next: displayLine + 1 };
   if (inst.type === "write") {
     const edit = isEditable(level, inst, "value.value") ? { instructionId: inst.id, path: "value.value" } : null;
+    const name = getMemoryPresentation(inst.name).code;
     return {
-      rows: [{ ...base, parts: [codeText(`${inst.name} = `), ...valueParts(level, inst.value, edit, `${inst.name} 数值`)] }],
+      rows: [{ ...base, parts: [codeText(`${name} = `), ...valueParts(level, inst.value, edit, `${name} 数值`)] }],
       next: displayLine + 1,
     };
   }
   if (inst.type === "update") {
     const edit = isEditable(level, inst, "value.right.value") ? { instructionId: inst.id, path: "value.right.value" } : null;
+    const name = getMemoryPresentation(inst.name).code;
     const value = inst.value.type === "add" || inst.value.type === "subtract" ? inst.value.right : inst.value;
     const operator = inst.value.type === "subtract" ? " - " : " + ";
     return {
-      rows: [{ ...base, parts: [codeText(`${inst.name} = ${inst.name}${operator}`), ...valueParts(level, value, edit, `${inst.name} 更新量`)] }],
+      rows: [{ ...base, parts: [codeText(`${name} = ${name}${operator}`), ...valueParts(level, value, edit, `${name} 更新量`)] }],
       next: displayLine + 1,
     };
   }
@@ -222,7 +236,7 @@ const levelDefinitions = [
     story: "中继站已经断电，只有轨道旁的充电站还亮着。",
     goal: "先给 Unit-0 充好电，再启动中继站。",
     help: "先让 Unit-0 到充电站，再让它前往中继站。",
-    hintSteps: ["中继站来得太早，Unit-0 还没有 energy。", "先让 Unit-0 到充电站。", "把充电放在送出 energy 之前。"],
+    hintSteps: ["中继站来得太早，Unit-0 还没充好电。", "先让 Unit-0 到充电站。", "先充好电，再让 Unit-0 前往中继站。"],
     law: "Flow", lawBeat: { type: "flow", caption: "先到充电站，拿到能量，中继站才会亮。" }, dawnProgress: 0.02,
     memoryNames: ["energy"], worldRules: { chargeMemory: "energy", deliver: [{ type: "memoryMin", name: "energy", value: 3 }] }, scene: scenes.flow,
     starterProgram: { instructions: [move("charge"), deliver("relay"), charge(3)] },
@@ -252,16 +266,16 @@ const levelDefinitions = [
     id: 3, zone: "记忆仓 · Memory", title: "记住能量",
     story: "中继站需要 5 点能量，但记忆盒里保存的数值不够。",
     goal: "让记忆盒中的 energy 变成 5。",
-    help: "想让数值留在记忆盒里，就把它写进 energy。",
+    help: "把代码里的 energy 改成 5，让记忆盒记住这个数值。",
     hintSteps: ["记忆盒里的数字还不够。", "找到代码里的 energy，把它改成 5。", "再运行程序，看看中继站会不会亮起来。"],
-    law: "Memory", lawBeat: { type: "memory", caption: "记忆盒会留下你写进去的数值。" }, dawnProgress: 0.16,
+    law: "Memory", lawBeat: { type: "memory", caption: "记忆盒会留下你设定的数值。" }, dawnProgress: 0.16,
     memoryNames: ["energy"], worldRules: { deliver: [{ type: "memoryMin", name: "energy", value: 5 }] }, scene: scenes.memory,
     starterProgram: { instructions: [write("energy", literal(2)), deliver("relay")] },
     solution: { instructions: [write("energy", literal(5)), deliver("relay")] },
     editableSlots: [{ id: "energy", instructionId: "write_energy", path: "value.value", type: "number", label: "energy 数值", min: 0, max: 9 }],
     successInvariant: { type: "memory", energy: 5, terminal: "relay" },
     successRules: [{ type: "memoryEquals", name: "energy", value: 5 }, { type: "atNode", value: "relay" }, { type: "delivered", value: true }],
-    failureCases: [{ when: "energy below 5", message: "记忆盒里的 energy 还不够 5 点，中继站还没有恢复供电。" }],
+    failureCases: [{ when: "energy below 5", message: "记忆盒里的能量还不够 5 点，中继站还没有恢复供电。" }],
     successTitle: "记忆盒记住了 5 点能量。", successText: "中继站恢复供电。",
   },
   {
@@ -277,14 +291,14 @@ const levelDefinitions = [
     successInvariant: { type: "memory-update", energy: 2, terminal: "relay" },
     successRules: [{ type: "memoryEquals", name: "energy", value: 2 }, { type: "atNode", value: "relay" }, { type: "delivered", value: true }],
     failureCases: [{ when: "update amount is 0", message: "energy 还是 1，记忆盒里的数值没有变。" }],
-    successTitle: "能量增加了。", successText: "energy 从 1 变成了 2。",
+    successTitle: "能量增加了。", successText: "能量从 1 变成了 2。",
   },
   {
     id: 5, zone: "判断门 · Choice", title: "打开亮路",
     story: "判断门后有两条路，只有上面的亮路还能通行。",
     goal: "调整判断条件，让 Unit-0 走上亮路。",
     help: "先看记忆盒里的 energy，再选择合适的比较符号。",
-    hintSteps: ["现在的判断会把 Unit-0 送进暗路。", "记忆盒里的 energy 是 5，门上的数字是 8。", "试试能让 5 小于 8 成立的符号。"],
+    hintSteps: ["现在的判断会让 Unit-0 走进暗路。", "记忆盒里的 energy 是 5，门上的数字是 8。", "试试能让 5 小于 8 成立的符号。"],
     law: "Choice", lawBeat: { type: "choice", caption: "判断门会先看数字，再打开一条路。" }, dawnProgress: 0.42,
     memoryNames: ["energy"], worldRules: { deliver: [{ type: "memoryMin", name: "energy", value: 5 }] }, scene: scenes.choice,
     starterProgram: { instructions: [write("energy", literal(5)), branch(memory("energy"), ">", literal(8), "light", "dark"), deliver("relay")] },
@@ -301,13 +315,13 @@ const levelDefinitions = [
     goal: "让判断门认出这两个标签相同。",
     help: "这里比较的是标签内容，不是数字大小。",
     hintSteps: ["blue 是文字，不是数字。", "让两边都显示 blue。", "选择表示“相同”的比较符号。"],
-    dawnProgress: 0.52, memoryNames: ["cargo"], worldRules: {}, scene: scenes.choice,
-    starterProgram: { instructions: [write("cargo", literal("blue")), branch(memory("cargo"), ">", literal("blue"), "light", "dark"), deliver("relay")] },
-    solution: { instructions: [write("cargo", literal("blue")), branch(memory("cargo"), "==", literal("blue"), "light", "dark"), deliver("relay")] },
+    dawnProgress: 0.52, memoryNames: ["label"], worldRules: {}, scene: scenes.choice,
+    starterProgram: { instructions: [write("label", literal("blue")), branch(memory("label"), ">", literal("blue"), "light", "dark"), deliver("relay")] },
+    solution: { instructions: [write("label", literal("blue")), branch(memory("label"), "==", literal("blue"), "light", "dark"), deliver("relay")] },
     editableSlots: [{ id: "operator", instructionId: "branch_gate", path: "operator", type: "select", label: "比较符号", options: [">", "<", "=="] }],
-    successInvariant: { type: "choice-cargo", operator: "==", path: "light", terminal: "relay" },
+    successInvariant: { type: "choice-label", operator: "==", path: "light", terminal: "relay" },
     successRules: [{ type: "branchTaken", value: "light" }, { type: "atNode", value: "relay" }, { type: "delivered", value: true }],
-    failureCases: [{ when: "cargo mismatch", message: "这是文字标签，不能比较谁大谁小。" }],
+    failureCases: [{ when: "label mismatch", message: "这是文字标签，不能比较谁大谁小。" }],
     successTitle: "标签匹配。", successText: "标签匹配，亮路打开了。",
   },
   {

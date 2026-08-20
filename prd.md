@@ -10,7 +10,7 @@ Unit-0 是一款面向编程初学者的交互式解谜游戏。玩家先观察�
 - Memory：带名字的值进入记忆盒，之后可以被加载、计算并保存。
 - Choice：判断门从记忆盒接收值，完成比较后选择一条路线。
 
-当前切片不扩展到其他教学主题。用户界面、目标、提示、故事、错误、ARIA 文案和 `worldMirror` 均使用中文；Unit-0、Python、energy、cargo、Flow、Memory、Choice 以及代码语法保留为必要的产品词汇。
+当前切片不扩展到其他教学主题。用户界面、目标、提示、故事、错误、ARIA 文案和 `worldMirror` 均使用中文；Unit-0、Python、energy、label、Flow、Memory、Choice 以及代码语法保留为必要的产品词汇。
 
 ## 2. 故事与视觉语气
 
@@ -57,7 +57,7 @@ deliver("relay")
 | 3 | Memory：`dock → memory → relay` | 用名字保留 `energy` |
 | 4 | Memory：直接 `update` | 加载旧值、计算新值、保存结果 |
 | 5 | Choice：`memory → gate` | 数值比较决定 `light` 或 `dark` |
-| 6 | Choice：`memory → gate` | cargo 标签使用 `==` |
+| 6 | Choice：`memory → gate` | 用 `label` 保存标签，并用 `==` 比较内容 |
 | 7 | Choice：写入、更新、判断、交付 | 重新排列一条完整链 |
 | 8 | Choice：中央塔 | 让 `energy = 5` 走 `dawn` |
 

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getLevels, createProgram, cloneProgram } from "../src/levels.js";
+import { getLevels, createProgram, cloneProgram, getMemoryPresentation } from "../src/levels.js";
 import {
   INSTRUCTION_TYPES,
   VALUE_EXPR_TYPES,
@@ -21,6 +21,17 @@ function editableParts(value, result = []) {
   if (Array.isArray(value)) value.forEach((item) => editableParts(item, result));
   else Object.values(value).forEach((item) => editableParts(item, result));
   return result;
+}
+
+function renderedCode(level, program) {
+  return level.code(program)
+    .map((row) => row.parts.map((part) => {
+      if (typeof part === "string") return part;
+      if (part && typeof part.text === "string") return part.text;
+      if (part && typeof part.value !== "undefined") return String(part.value);
+      return "";
+    }).join(""))
+    .join("\n");
 }
 
 test("canonical content is data-driven, exactly eight levels, and excludes future laws", () => {
@@ -50,6 +61,44 @@ test("canonical programs use only typed instructions and typed ValueExpr nodes",
   }
   assert.ok(expressionTypes.size > 0);
   assert.ok([...expressionTypes].every((type) => VALUE_EXPR_TYPES.has(type)));
+});
+
+test("Level 6 uses label as the canonical memory in code and runtime-facing data", () => {
+  const level = levels[5];
+  assert.deepEqual(level.memoryNames, ["label"]);
+
+  for (const program of [level.starterProgram, level.solution]) {
+    const source = JSON.stringify(program);
+    assert.doesNotMatch(source, /\bcargo\b/i);
+    assert.match(source, /"name":"label"/);
+    assert.match(source, /"id":"write_label"/);
+  }
+
+  const code = renderedCode(level, solutionOf(level));
+  assert.match(code, /label\s*=\s*"blue"/);
+  assert.match(code, /label\s*==\s*"blue"/);
+  assert.doesNotMatch(code, /\bcargo\b/i);
+});
+
+test("memory presentation exposes explicit code, world, and prose layers with a safe fallback", () => {
+  assert.deepEqual(Object.keys(getMemoryPresentation("label")).sort(), ["code", "prose", "world"]);
+  assert.deepEqual(getMemoryPresentation("energy"), {
+    code: "energy",
+    world: "energy",
+    prose: "能量",
+  });
+  assert.deepEqual(getMemoryPresentation("label"), {
+    code: "label",
+    world: "标签",
+    prose: "标签",
+  });
+
+  const unknown = getMemoryPresentation("count");
+  assert.equal(unknown.code, "count");
+  assert.equal(unknown.world, "记忆");
+  assert.equal(unknown.prose, "这项记忆");
+  assert.doesNotMatch(unknown.world, /\bcount\b/i);
+  assert.doesNotMatch(unknown.prose, /\bcount\b/i);
 });
 
 test("progression keeps the complete Choice editing surface on levels 7 and 8", () => {

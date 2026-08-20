@@ -125,6 +125,29 @@ test("validateProgram and Runtime reject malformed or unsafe instructions before
   }
 });
 
+test("Level 6 rejects the legacy cargo memory program", () => {
+  const level = levels[5];
+  const legacy = {
+    instructions: [
+      { id: "write_cargo", type: "write", name: "cargo", value: { type: "literal", value: "blue" } },
+      {
+        id: "branch_gate",
+        type: "branch",
+        left: { type: "memory", name: "cargo" },
+        operator: "==",
+        right: { type: "literal", value: "blue" },
+        pass: "light",
+        fail: "dark",
+      },
+      { id: "deliver_relay", type: "deliver", to: "relay" },
+    ],
+  };
+
+  const validation = validateProgram(level, legacy);
+  assert.equal(validation.ok, false);
+  assert.throws(() => new Runtime(level, legacy), /memory|记忆|不存在|声明|invalid/i);
+});
+
 test("duplicate instruction ids are rejected before execution", () => {
   const level = levels[0];
   const duplicate = cloneProgram(level.solution);

@@ -36,11 +36,15 @@ npm run build
 3. Memory：把 5 点 `energy` 存入记忆盒。
 4. Memory：用 `update` 将 `energy` 从 1 变成 2。
 5. Choice：让 5 点 `energy` 通过 `light`。
-6. Choice：用 `==` 识别两个 `blue` 标签。
+6. Choice：用 `label` 保存 `blue` 标签，再用 `==` 比较内容。
 7. Choice：整理写入、更新、判断和交付的顺序。
 8. Choice：让 `energy` 变成 5，走向 `dawn`，回应 `MAKE THE SUN RISE AGAIN`。
 
 ## 实现边界
+
+### `deliver()` 语义决策
+
+长期设计中，`deliver()` 只负责真实物品的交付或安装；普通设备启动应改用 `activate()`，或由 Unit-0 到达目标后触发。本轮为保持现有机制与教学进度，暂不迁移 `deliver()`。
 
 - `src/levels.js`：八个数据驱动关卡、typed instruction、ValueExpr、中文目标与提示、Python-like 代码行和编辑映射。
 - `src/runtime.js`：受控操作校验、稳定事件身份、真实有向轨道、独立的数据位置、Run/Pause/Step/Reset 和安全快照。

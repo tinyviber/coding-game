@@ -1,4 +1,4 @@
-import { MAX_EVENTS, cloneProgram, evaluateSuccess, getDisplayLines, getScene, getWorldItemLabel, getWorldLabel, normalizeProgram } from "./levels.js";
+import { MAX_EVENTS, cloneProgram, evaluateSuccess, getDisplayLines, getMemoryPresentation, getScene, getWorldItemLabel, getWorldLabel, normalizeProgram } from "./levels.js";
 import { edgeControlPoints, pointOnEdge } from "./geometry.js";
 import { findEdgePath, isAuthoredEdge } from "./scene-graph.js";
 
@@ -246,7 +246,7 @@ export function compileProgram(level, rawProgram) {
 export function evaluateValue(expr, state) {
   if (expr?.type === "literal") return { ok: true, value: expr.value };
   if (expr?.type === "memory") {
-    if (!Object.prototype.hasOwnProperty.call(state.vars || {}, expr.name)) return fail(`记忆盒里的 ${expr.name} 还是空的。`);
+    if (!Object.prototype.hasOwnProperty.call(state.vars || {}, expr.name)) return fail(`记忆盒里的${getMemoryPresentation(expr.name).prose}还是空的。`);
     return { ok: true, value: state.vars[expr.name] };
   }
   if (expr?.type !== "add" && expr?.type !== "subtract") return fail("这里的数值写法还不能使用。");
@@ -291,9 +291,9 @@ function errorState(state, message, line) {
 
 function checkRequirements(level, state, requirements = []) {
   for (const requirement of requirements) {
-    if (requirement.type === "memoryMin" && Number(state.vars?.[requirement.name] ?? 0) < Number(requirement.value)) return "中继站还没有亮起来，energy 还不够。";
+    if (requirement.type === "memoryMin" && Number(state.vars?.[requirement.name] ?? 0) < Number(requirement.value)) return "中继站还没有亮起来，能量还不够。";
     if (requirement.type === "carried" && state.carried !== requirement.value) return "Unit-0 到达中继站时，手里还是空的。";
-    if (requirement.type === "memoryExists" && !Object.prototype.hasOwnProperty.call(state.vars || {}, requirement.name)) return `记忆盒里的 ${requirement.name} 还是空的。`;
+    if (requirement.type === "memoryExists" && !Object.prototype.hasOwnProperty.call(state.vars || {}, requirement.name)) return `记忆盒里的${getMemoryPresentation(requirement.name).prose}还是空的。`;
   }
   return "";
 }
@@ -355,7 +355,7 @@ function applyEvent(level, state, event) {
       next.dataToken = { name, value };
       next.tokenPosition = "memory";
       next.tokenTransfer = { phase: "memory", id: state.tokenTransfer.id + 1, name, value, edge: null };
-      next.event = `记忆盒收到 ${name} = ${value}`;
+      next.event = "";
       return next;
     }
     if (stage === "commit") {
@@ -367,14 +367,15 @@ function applyEvent(level, state, event) {
       next.tokenPosition = "memory";
       next.pendingStore = null;
       next.pendingCalculation = null;
-      next.event = `记忆盒保存 ${name} = ${value}`;
+      const prose = getMemoryPresentation(name).prose;
+      next.event = prose === "能量" ? `记忆盒记下了 ${value} 点能量。` : `记忆盒记下了${prose}：${value}。`;
       return next;
     }
   }
 
   if (event.kind === "load-memory") {
     const { name } = event.payload;
-    if (!Object.prototype.hasOwnProperty.call(state.vars, name)) return errorState(state, `记忆盒里的 ${name} 还是空的。`, event.sourceLine);
+    if (!Object.prototype.hasOwnProperty.call(state.vars, name)) return errorState(state, `记忆盒里的${getMemoryPresentation(name).prose}还是空的。`, event.sourceLine);
     const value = state.vars[name];
     next.dataToken = { name, value };
     next.tokenPosition = "memory";
@@ -382,7 +383,8 @@ function applyEvent(level, state, event) {
     if (item.type === "update") next.pendingCalculation = { name, oldValue: value };
     if (item.type === "branch") next.pendingBranch = { name, value };
     next.tokenTransfer = { phase: "memory", id: state.tokenTransfer.id + 1, name, value, edge: null };
-    next.event = `记忆盒取出 ${name} = ${value}`;
+    const prose = getMemoryPresentation(name).prose;
+    next.event = prose === "能量" ? `取出能量：${value}` : `取出${prose}：${value}`;
     return next;
   }
 
@@ -393,7 +395,7 @@ function applyEvent(level, state, event) {
     next.pendingCalculation = null;
     next.dataToken = { name: item.name, value: calculation.payload.newValue };
     next.tokenPosition = "memory";
-    next.event = `${item.name} 从 ${calculation.payload.leftValue} 变成 ${calculation.payload.newValue}`;
+    next.event = `${getMemoryPresentation(item.name).prose} 从 ${calculation.payload.leftValue} 变成 ${calculation.payload.newValue}`;
     return next;
   }
 
@@ -408,7 +410,8 @@ function applyEvent(level, state, event) {
 
   if (event.kind === "gate-receive") {
     if (!state.pendingBranch || state.tokenPosition !== "gate") return errorState(state, "判断门还没看到记忆盒里的值。", event.sourceLine);
-    next.event = `判断门看到了 ${event.payload.name} = ${event.payload.value}`;
+    const prose = getMemoryPresentation(event.payload.name).prose;
+    next.event = `判断门收到了${prose}。`;
     next.tokenTransfer = { ...state.tokenTransfer, phase: "gate", edge: null };
     next.tokenAnimation = { phase: "gate", edge: null, progress: 1 };
     return next;
@@ -454,7 +457,8 @@ function applyEvent(level, state, event) {
     next.memoryKey = name;
     next.dataToken = { name, value: next.energy };
     next.tokenPosition = "memory";
-    next.event = `Unit-0 充好电，${name} = ${next.energy}`;
+    const prose = getMemoryPresentation(name).prose;
+    next.event = prose === "能量" ? `Unit-0 充好了 ${next.energy} 点能量。` : `Unit-0 充好了${prose}。`;
     return next;
   }
 
