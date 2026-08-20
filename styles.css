@@ -38,6 +38,7 @@ button { color: inherit; }
 .app-shell { width: min(1400px, 100%); min-height: 100vh; margin: 0 auto; padding: 28px 34px 30px; }
 .topbar, .control-dock, .panel-topline, .code-head, .world-legend, .control-group, .line-state { display: flex; align-items: center; }
 .topbar { justify-content: space-between; gap: 20px; padding: 0 8px 22px; }
+.topbar-actions { display: flex; align-items: center; gap: 18px; }
 .brand-lockup { display: flex; align-items: center; gap: 13px; }
 .brand-mark { position: relative; width: 42px; height: 42px; }
 .brand-mark::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: var(--sun); box-shadow: 0 4px 0 rgba(198, 139, 74, .18); }
@@ -53,6 +54,9 @@ button { color: inherit; }
 .mission-chip[data-state="running"] .pulse-dot { animation: bob 1.2s ease-in-out infinite; }
 .mission-chip[data-state="error"] .pulse-dot { background: var(--coral); }
 .mission-chip[data-state="success"] .pulse-dot { background: var(--grass-deep); }
+.map-button, .map-close-button { min-height: 44px; color: var(--ink-soft); background: rgba(255, 255, 255, .72); border: 2px solid rgba(78, 103, 104, .12); border-radius: 14px; cursor: pointer; font-size: 11px; font-weight: 850; letter-spacing: .06em; }
+.map-button { padding: 0 14px; }
+.map-button:hover, .map-button:focus-visible, .map-close-button:hover, .map-close-button:focus-visible { color: var(--coral-deep); background: #fff; border-color: rgba(238, 141, 120, .42); outline: none; }
 
 .game-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(320px, .85fr); gap: 28px; align-items: start; }
 .panel { min-width: 0; background: transparent; border: 0; box-shadow: none; }
@@ -146,12 +150,30 @@ kbd { padding: 3px 6px; color: var(--ink-soft); background: #fff; border: 1px so
 
 .toast { position: fixed; bottom: 90px; left: 50%; z-index: 10; max-width: min(440px, calc(100% - 28px)); padding: 11px 16px; color: var(--ink); background: #fffdf4; border-radius: 16px; box-shadow: 0 12px 32px rgba(87, 107, 96, .2); opacity: 0; pointer-events: none; transform: translate(-50%, 14px); transition: opacity .2s, transform .2s; font-size: 12px; text-align: center; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
-.level-card { position: fixed; top: 50%; left: 50%; z-index: 20; width: min(390px, calc(100% - 36px)); padding: 30px; color: var(--ink); text-align: center; background: #fff9e9; border: 0; border-radius: 28px; box-shadow: 0 24px 70px rgba(87, 107, 96, .24); transform: translate(-50%, -50%); }
-.level-card.hidden { display: none; }
+.level-card { position: fixed; top: 50%; left: 50%; z-index: 20; width: min(390px, calc(100% - 36px)); margin: 0; padding: 30px; color: var(--ink); text-align: center; background: #fff9e9; border: 0; border-radius: 28px; box-shadow: 0 24px 70px rgba(87, 107, 96, .24); transform: translate(-50%, -50%); }
+.level-card:not([open]) { display: none; }
+.level-card::backdrop { background: rgba(17, 28, 53, .3); }
 .card-kicker { color: #4d9b78; font-size: 10px; font-weight: 850; letter-spacing: .16em; }
 .level-card h2 { margin-top: 11px; color: var(--ink); font-size: 30px; letter-spacing: -.04em; }
 .level-card p { margin-top: 9px; color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
 .card-button { margin-top: 22px; }
+
+.map-dialog { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; max-width: none; max-height: none; margin: 0; padding: 20px; background: rgba(17, 28, 53, .48); border: 0; }
+.map-dialog:not([open]) { display: none; }
+.map-dialog::backdrop { background: transparent; }
+.map-dialog-panel { width: min(650px, 100%); max-height: min(720px, calc(100vh - 40px)); overflow: auto; padding: 26px; background: #fff9e9; border-radius: 26px; box-shadow: 0 24px 70px rgba(28, 45, 55, .28); }
+.map-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.map-dialog-head h2 { margin-top: 7px; color: var(--ink); font-size: 30px; letter-spacing: -.04em; }
+.map-close-button { width: 44px; padding: 0; font-size: 24px; line-height: 1; }
+.map-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 24px; }
+.map-group { min-width: 0; padding: 14px; background: rgba(255, 255, 255, .62); border: 1px solid rgba(78, 103, 104, .12); border-radius: 18px; }
+.map-group h3 { color: var(--coral-deep); font-size: 11px; letter-spacing: .12em; }
+.map-level-list { display: grid; gap: 8px; margin-top: 10px; }
+.map-level-button { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 7px 9px; color: var(--ink-soft); text-align: left; background: #fff; border: 1px solid rgba(78, 103, 104, .12); border-radius: 11px; cursor: pointer; font-size: 11px; font-weight: 750; }
+.map-level-button:hover, .map-level-button:focus-visible { color: var(--coral-deep); border-color: rgba(238, 141, 120, .55); outline: 3px solid rgba(238, 141, 120, .16); outline-offset: 1px; }
+.map-level-button[aria-current="page"] { color: var(--ink); background: #fff0bd; border-color: var(--sun); }
+.map-level-button[data-completed="true"] { border-color: rgba(139, 207, 182, .78); }
+.map-status { color: #34745f; font-size: 10px; white-space: nowrap; }
 
 .intro-sequence { position: fixed; inset: 0; z-index: 50; overflow: hidden; background: #111c35; }
 .intro-sequence[hidden] { display: none; }
@@ -177,6 +199,8 @@ kbd { padding: 3px 6px; color: var(--ink-soft); background: #fff; border: 1px so
   .topbar { align-items: flex-start; padding: 0 3px 17px; }
   .brand-sub { display: none; }
   .brand-name { font-size: 11px; }
+  .topbar-actions { gap: 8px; }
+  .map-button { padding: 0 9px; font-size: 10px; }
   .world-panel, .code-panel { padding-right: 0; padding-left: 0; }
   .code-panel { padding-top: 19px; padding-bottom: 14px; }
   .code-line { grid-template-columns: 28px minmax(0, 1fr); grid-template-rows: auto auto; align-items: start; padding-top: 4px; padding-bottom: 4px; }
@@ -197,6 +221,9 @@ kbd { padding: 3px 6px; color: var(--ink-soft); background: #fff; border: 1px so
   .progress-dots { order: 5; width: 100%; margin-left: 0; }
   .progress-dot { flex: 1; }
   .next-button { margin-left: 0; }
+  .map-dialog { align-items: start; padding: 12px; }
+  .map-dialog-panel { max-height: calc(100vh - 24px); padding: 20px 16px; border-radius: 22px; }
+  .map-groups { grid-template-columns: 1fr; gap: 10px; margin-top: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

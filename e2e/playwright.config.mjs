@@ -17,10 +17,10 @@ export default defineConfig({
     reducedMotion: "reduce",
   },
   webServer: {
-    command: "python3 -m http.server 4173",
+    command: "npm run build && python3 -m http.server 4173 --directory dist",
     cwd: repoRoot,
     url: "http://127.0.0.1:4173/index.html",
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 10_000,
   },
   projects: [

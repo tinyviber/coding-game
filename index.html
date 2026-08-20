@@ -25,8 +25,24 @@
             <div class="brand-sub">把机械小镇修到天亮</div>
           </div>
         </div>
-          <div class="mission-chip"><span class="pulse-dot"></span><span id="runStatus">准备好了</span></div>
+          <div class="topbar-actions">
+            <button id="mapButton" class="map-button" type="button" aria-haspopup="dialog">关卡地图</button>
+            <div class="mission-chip"><span class="pulse-dot"></span><span id="runStatus">准备好了</span></div>
+          </div>
       </header>
+
+      <dialog id="levelMapDialog" class="map-dialog" aria-labelledby="mapTitle">
+        <div class="map-dialog-panel">
+          <div class="map-dialog-head">
+            <div>
+              <div class="eyebrow">选择修复任务</div>
+              <h2 id="mapTitle">关卡地图</h2>
+            </div>
+            <button id="mapCloseButton" class="map-close-button" type="button" aria-label="关闭关卡地图">×</button>
+          </div>
+          <div id="mapGroups" class="map-groups"></div>
+        </div>
+      </dialog>
 
       <main class="game-grid">
         <section class="world-panel panel">
@@ -35,12 +51,12 @@
               <div class="eyebrow" id="zoneLabel">零号车站</div>
             <h1 id="levelTitle" tabindex="-1">唤醒信号</h1>
             </div>
-            <div class="level-count"><span id="levelNumber">01</span><span class="slash">/</span><span>08</span></div>
+            <div class="level-count"><span id="levelNumber">01</span><span class="slash">/</span><span id="levelTotal">00</span></div>
           </div>
           <div class="story-line" id="storyLine">死寂的轨道下，一盏小灯闪了一下。</div>
           <div class="canvas-wrap">
             <canvas id="worldCanvas" aria-label="机械小镇的世界地图"></canvas>
-            <div id="sceneCaption" class="scene-caption" aria-live="polite"></div>
+            <div id="sceneCaption" class="scene-caption" aria-live="polite" hidden></div>
             <div class="canvas-hud hud-left"><span class="hud-key">任务</span><span id="goalText">观察世界中还在回应零号车的地方。</span></div>
             <div class="canvas-hud hud-right"><span class="hud-key">现在</span><span id="eventText">等待操作。</span></div>
           </div>
@@ -86,12 +102,12 @@
       </footer>
 
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
-      <div class="level-card hidden" id="levelCard" role="dialog" aria-modal="true" aria-labelledby="cardTitle" aria-live="polite">
+      <dialog class="level-card" id="levelCard" aria-labelledby="cardTitle" aria-live="polite">
         <div class="card-kicker" id="cardKicker">信号已恢复</div>
         <h2 id="cardTitle">太好了！</h2>
         <p id="cardText">轨道记住了这条路线。</p>
         <button class="action-button primary card-button" id="cardNextButton" type="button" aria-label="继续" disabled>继续 <span>→</span></button>
-      </div>
+      </dialog>
     </div>
     <script type="module" src="./src/main.js"></script>
   </body>

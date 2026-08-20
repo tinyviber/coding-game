@@ -232,7 +232,7 @@ function targetForInstruction(inst) {
 
 const levelDefinitions = [
   {
-    id: 1, zone: "零号车站 · Flow", title: "唤醒轨道",
+    id: 1, mapGroup: { key: "flow", label: "Flow", order: 1 }, zone: "零号车站 · Flow", title: "唤醒轨道",
     story: "中继站已经断电，只有轨道旁的充电站还亮着。",
     goal: "先给 Unit-0 充好电，再启动中继站。",
     help: "先让 Unit-0 到充电站，再让它前往中继站。",
@@ -248,7 +248,7 @@ const levelDefinitions = [
     successTitle: "中继站重新亮了起来。", successText: "轨道重新运转了。",
   },
   {
-    id: 2, zone: "零号车站 · Flow", title: "遗失的核心",
+    id: 2, mapGroup: { key: "flow", label: "Flow", order: 1 }, zone: "零号车站 · Flow", title: "遗失的核心",
     story: "中继站中央缺了一块核心。它就掉在前面的轨道旁。",
     goal: "捡起中继核心，把它装回中继站的空插槽。",
     help: "先在轨道旁捡起核心，再把它带回中继站。",
@@ -263,7 +263,7 @@ const levelDefinitions = [
     successTitle: "核心归位。", successText: "咔哒——核心装回去了。",
   },
   {
-    id: 3, zone: "记忆仓 · Memory", title: "记住能量",
+    id: 3, mapGroup: { key: "memory", label: "Memory", order: 2 }, zone: "记忆仓 · Memory", title: "记住能量",
     story: "中继站需要 5 点能量，但记忆盒里保存的数值不够。",
     goal: "让记忆盒中的 energy 变成 5。",
     help: "把代码里的 energy 改成 5，让记忆盒记住这个数值。",
@@ -279,7 +279,7 @@ const levelDefinitions = [
     successTitle: "记忆盒记住了 5 点能量。", successText: "中继站恢复供电。",
   },
   {
-    id: 4, zone: "记忆仓 · Memory", title: "增加能量",
+    id: 4, mapGroup: { key: "memory", label: "Memory", order: 2 }, zone: "记忆仓 · Memory", title: "增加能量",
     story: "记忆盒里现在只有 1 点能量。",
     goal: "修改程序，让 energy 最后变成 2。",
     help: "看看 energy 现在是多少，再把它增加一点。",
@@ -294,7 +294,7 @@ const levelDefinitions = [
     successTitle: "能量增加了。", successText: "能量从 1 变成了 2。",
   },
   {
-    id: 5, zone: "判断门 · Choice", title: "打开亮路",
+    id: 5, mapGroup: { key: "choice", label: "Choice", order: 3 }, zone: "判断门 · Choice", title: "打开亮路",
     story: "判断门后有两条路，只有上面的亮路还能通行。",
     goal: "调整判断条件，让 Unit-0 走上亮路。",
     help: "先看记忆盒里的 energy，再选择合适的比较符号。",
@@ -310,7 +310,7 @@ const levelDefinitions = [
     successTitle: "亮路打开了。", successText: "Unit-0 沿着亮路抵达中继站。",
   },
   {
-    id: 6, zone: "判断门 · Choice", title: "匹配标签",
+    id: 6, mapGroup: { key: "choice", label: "Choice", order: 3 }, zone: "判断门 · Choice", title: "匹配标签",
     story: "货物标签是 blue，判断门上的标签也是 blue。",
     goal: "让判断门认出这两个标签相同。",
     help: "这里比较的是标签内容，不是数字大小。",
@@ -325,7 +325,7 @@ const levelDefinitions = [
     successTitle: "标签匹配。", successText: "标签匹配，亮路打开了。",
   },
   {
-    id: 7, zone: "判断门 · Choice", title: "修好控制程序",
+    id: 7, mapGroup: { key: "choice", label: "Choice", order: 3 }, zone: "判断门 · Choice", title: "修好控制程序",
     story: "中继站的控制程序被打乱了，判断发生得太早。",
     goal: "重新排列代码，让 energy 先准备好，再由判断门选择路线。",
     help: "先让 energy 变成需要的数值，再让判断门选择路线。",
@@ -345,7 +345,7 @@ const levelDefinitions = [
     successTitle: "程序恢复正常。", successText: "程序恢复正常，Unit-0 顺利通过了判断门。",
   },
   {
-    id: 8, zone: "中央中继 · Choice", title: "唤醒中央塔",
+    id: 8, mapGroup: { key: "choice", label: "Choice", order: 3 }, zone: "中央中继 · Choice", title: "唤醒中央塔",
     story: "中央塔还在黑暗中。屏幕上只剩一句话：MAKE THE SUN RISE AGAIN。",
     goal: "修好最后一段程序，让启动信号沿晨光路抵达中央塔。",
     help: "先让 energy 准备好，再让判断门选择晨光路。",
@@ -459,7 +459,52 @@ function finishLevels() {
 
 const levels = finishLevels();
 
+export function assertUniqueLevelIds(items) {
+  const seen = new Set();
+  for (const level of items || []) {
+    if (!Number.isInteger(level?.id)) throw new TypeError("每个关卡都需要数字 ID。");
+    if (seen.has(level.id)) throw new Error(`Duplicate level id: ${level.id}`);
+    seen.add(level.id);
+  }
+  return items;
+}
+
+assertUniqueLevelIds(levels);
+
+export const LEVEL_IDS = Object.freeze(levels.map((level) => level.id));
+const levelsById = new Map(levels.map((level) => [level.id, level]));
+
+export function groupLevelsByMapGroup(items) {
+  const groups = new Map();
+  for (const level of items || []) {
+    const metadata = level?.mapGroup;
+    if (!metadata || typeof metadata.key !== "string" || typeof metadata.label !== "string" || !Number.isInteger(metadata.order)) {
+      throw new TypeError(`Level ${level?.id ?? "?"} needs valid mapGroup metadata.`);
+    }
+    const existing = groups.get(metadata.key);
+    if (existing) {
+      if (existing.label !== metadata.label || existing.order !== metadata.order) {
+        throw new Error(`Inconsistent mapGroup metadata: ${metadata.key}`);
+      }
+      existing.levels.push(level);
+    } else {
+      groups.set(metadata.key, { key: metadata.key, label: metadata.label, order: metadata.order, levels: [level] });
+    }
+  }
+  return [...groups.values()]
+    .sort((left, right) => left.order - right.order || left.key.localeCompare(right.key))
+    .map((group) => ({ ...group, levels: [...group.levels].sort((left, right) => left.id - right.id) }));
+}
+
 export function getLevels() { return levels; }
+export function getLevelById(levelId) {
+  return Number.isInteger(levelId) ? levelsById.get(levelId) : undefined;
+}
+export function getNextLevelId(levelId) {
+  const index = LEVEL_IDS.indexOf(levelId);
+  return index === -1 ? undefined : LEVEL_IDS[(index + 1) % LEVEL_IDS.length];
+}
+// Kept for older non-production callers. Production routing uses the stable ID APIs above.
 export function getLevel(index) { return levels[index]; }
 export function getScene(level) { return level.scene; }
 export function createProgram(level) { return clone(level.starterProgram); }
