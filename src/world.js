@@ -62,7 +62,7 @@ export class WorldView {
     this.drawUnit(ctx, state, w, h);
     if (this.beat) this.drawBeat(ctx, level, this.beat, w, h);
     if (state.phase === "error") this.drawFault(ctx, state, w, h);
-    if (state.phase === "success") this.drawSuccess(ctx, w, h);
+    if (state.phase === "success") this.drawSuccess(ctx, w, h, level);
   }
 
   updateMirror(state) {
@@ -72,6 +72,7 @@ export class WorldView {
     const pathName = state.path ? getWorldLabel(this.lastLevel, state.path) : "无";
     const carriedName = state.carried ? getWorldItemLabel(this.lastLevel, state.carried) : "无";
     const relayName = getWorldLabel(this.lastLevel, "relay");
+    const socketName = state.relaySocket === "empty" ? "空着" : state.relaySocket === "sealed" ? "已装好" : "无";
     const activeEdge = state.activeEdge ? `${state.activeEdge.from}->${state.activeEdge.to}` : "";
     const tokenEdge = state.tokenEdge ? `${state.tokenEdge.from}->${state.tokenEdge.to}` : "";
     const sunVisible = this.lastLevel?.id === 8 && state.phase === "success";
@@ -93,7 +94,7 @@ export class WorldView {
     this.mirror.dataset.activeEdge = activeEdge;
     this.mirror.dataset.tokenEdge = tokenEdge;
     this.mirror.dataset.sunVisible = String(sunVisible);
-    const mirrorText = `Unit-0 · ${unitName} · 记忆 ${memory || "—"} · 携带 ${carriedName} · ${relayName} 插槽 ${state.relaySocket || "无"} · 路线 ${pathName}`;
+    const mirrorText = `Unit-0 · ${unitName} · 记忆 ${memory || "—"} · 携带 ${carriedName} · ${relayName}插槽${socketName} · 路线${pathName}`;
     if (this.mirror.textContent !== mirrorText) this.mirror.textContent = mirrorText;
   }
 
@@ -189,7 +190,7 @@ export class WorldView {
   }
 
   drawFault(ctx, state, w, h) { ctx.save(); ctx.fillStyle = "rgba(239, 155, 141, .13)"; ctx.fillRect(0, 0, w, h); ctx.fillStyle = "#fff0e7"; ctx.strokeStyle = "rgba(202, 110, 99, .45)"; ctx.lineWidth = 2; ctx.roundRect(16, h - 53, w - 32, 34, 17); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#a95450"; ctx.font = "800 11px system-ui"; ctx.textAlign = "center"; ctx.fillText(state.mood === "puzzled" ? "插槽空着，Unit-0 还在想办法" : "这里还不对，重置后再试一次", w / 2, h - 31); ctx.restore(); }
-  drawSuccess(ctx, w, h) { ctx.save(); ctx.fillStyle = "rgba(139, 207, 182, .12)"; ctx.fillRect(0, 0, w, h); ctx.fillStyle = "#e4f4dd"; ctx.strokeStyle = "rgba(78, 150, 117, .38)"; ctx.lineWidth = 2; ctx.roundRect(16, h - 53, w - 32, 34, 17); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#34745f"; ctx.font = "800 11px system-ui"; ctx.textAlign = "center"; ctx.fillText("中继站已经收到交付", w / 2, h - 31); ctx.restore(); }
+  drawSuccess(ctx, w, h, level) { ctx.save(); ctx.fillStyle = "rgba(139, 207, 182, .12)"; ctx.fillRect(0, 0, w, h); ctx.fillStyle = "#e4f4dd"; ctx.strokeStyle = "rgba(78, 150, 117, .38)"; ctx.lineWidth = 2; ctx.roundRect(16, h - 53, w - 32, 34, 17); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#34745f"; ctx.font = "800 11px system-ui"; ctx.textAlign = "center"; const text = level?.id === 2 ? "核心装回去了" : level?.id === 8 ? "中央塔重新启动" : "中继站重新亮了起来"; ctx.fillText(text, w / 2, h - 31); ctx.restore(); }
 
   playBeat(level, beat, onDone) {
     if (!beat) return;

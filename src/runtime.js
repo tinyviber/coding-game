@@ -1,4 +1,4 @@
-import { MAX_EVENTS, cloneProgram, evaluateSuccess, formatWorldText, getDisplayLines, getScene, getWorldItemLabel, getWorldLabel, normalizeProgram } from "./levels.js";
+import { MAX_EVENTS, cloneProgram, evaluateSuccess, getDisplayLines, getScene, getWorldItemLabel, getWorldLabel, normalizeProgram } from "./levels.js";
 import { edgeControlPoints, pointOnEdge } from "./geometry.js";
 import { findEdgePath, isAuthoredEdge } from "./scene-graph.js";
 
@@ -13,45 +13,45 @@ const fail = (message, line = 0) => ({ ok: false, message, line });
 function memoryNamesFor(level) { return new Set(level.memoryNames || []); }
 
 function validateValueExpr(level, expr, depth = 0) {
-  if (!expr || typeof expr !== "object" || depth > 8) return fail("数值表达式无效。");
+  if (!expr || typeof expr !== "object" || depth > 8) return fail("这里的数值写法不对。");
   if (expr.type === "literal") {
     const valid = (typeof expr.value === "number" && Number.isFinite(expr.value))
       || (typeof expr.value === "string" && expr.value.length > 0);
-    return valid ? { ok: true } : fail("字面值必须是有限数字或非空文本。");
+    return valid ? { ok: true } : fail("请填写一个有效的数字或文字。");
   }
-  if (expr.type === "memory") return memoryNamesFor(level).has(expr.name) ? { ok: true } : fail("记忆名称不存在。");
+  if (expr.type === "memory") return memoryNamesFor(level).has(expr.name) ? { ok: true } : fail("找不到这项记忆。");
   if (expr.type === "add" || expr.type === "subtract") {
     const left = validateValueExpr(level, expr.left, depth + 1);
     if (!left.ok) return left;
     return validateValueExpr(level, expr.right, depth + 1);
   }
-  return fail("不认识这种数值表达式。");
+  return fail("这里的数值写法还不能使用。");
 }
 
 function validateInstruction(level, item, index) {
   const line = index + 1;
-  if (!item || typeof item !== "object" || !INSTRUCTION_TYPES.has(item.type)) return fail("不认识这条指令。", line);
-  if (typeof item.id !== "string" || !item.id) return fail("每条指令都需要稳定的 id。", line);
+  if (!item || typeof item !== "object" || !INSTRUCTION_TYPES.has(item.type)) return fail("这行内容无法识别。", line);
+  if (typeof item.id !== "string" || !item.id) return fail("这行程序还没有完整标记。", line);
   const scene = getScene(level);
   const nodes = new Set(scene.nodes.map((node) => node.id));
   if (item.type === "move") return nodes.has(item.to) ? { ok: true } : fail("移动目标不在这张轨道图上。", line);
   if (item.type === "charge") return Number.isInteger(item.amount) && item.amount >= 0 && item.amount <= 9 ? { ok: true } : fail("充电数值必须是 0 到 9 的整数。", line);
-  if (item.type === "pickup") return typeof item.item === "string" && nodes.has(item.at || item.item) ? { ok: true } : fail("取物目标无效。", line);
-  if (item.type === "deliver") return nodes.has(item.to || "relay") ? { ok: true } : fail("交付目标不在这张轨道图上。", line);
+  if (item.type === "pickup") return typeof item.item === "string" && nodes.has(item.at || item.item) ? { ok: true } : fail("找不到要拿的东西。", line);
+  if (item.type === "deliver") return nodes.has(item.to || "relay") ? { ok: true } : fail("送达位置不在这张轨道图上。", line);
   if (item.type === "write" || item.type === "update") {
-    if (!memoryNamesFor(level).has(item.name)) return fail(`${item.type === "write" ? "写入" : "更新"}引用了不存在的记忆。`, line);
+    if (!memoryNamesFor(level).has(item.name)) return fail(`${item.type === "write" ? "写入" : "修改"}引用了不存在的记忆。`, line);
     const value = validateValueExpr(level, item.value);
     return value.ok ? value : { ...value, line };
   }
-  if (!OPERATORS.has(item.operator)) return fail("判断方式无效。", line);
-  if (item.left?.type !== "memory") return fail("判断门需要从记忆盒接收一个值。", line);
+  if (!OPERATORS.has(item.operator)) return fail("比较方式不对。", line);
+  if (item.left?.type !== "memory") return fail("判断门需要先看到记忆盒里的值。", line);
   const left = validateValueExpr(level, item.left);
   if (!left.ok) return { ...left, line };
   const right = validateValueExpr(level, item.right);
   if (!right.ok) return { ...right, line };
-  if (typeof item.pass !== "string" || typeof item.fail !== "string") return fail("判断路线必须有名称。", line);
+  if (typeof item.pass !== "string" || typeof item.fail !== "string") return fail("判断门的两条路线还没有写好。", line);
   const outgoing = new Set((scene.edges || []).filter(([from]) => from === scene.branchNode).map(([, to]) => to));
-  if (!outgoing.has(item.pass) || !outgoing.has(item.fail)) return fail("判断路线不是当前场景声明的真实轨道。", line);
+  if (!outgoing.has(item.pass) || !outgoing.has(item.fail)) return fail("判断门的路线不在这张轨道图上。", line);
   return { ok: true };
 }
 
@@ -60,15 +60,15 @@ export function validateProgram(level, rawProgram) {
   try {
     program = normalizeProgram(level, rawProgram);
   } catch (error) {
-    return fail(error.message || "程序格式无效。", error.line || 0);
+    return fail(error.message || "程序格式不对。", error.line || 0);
   }
-  if (!Array.isArray(program.instructions) || program.instructions.length === 0) return fail("程序还没有指令。");
-  if (program.instructions.length > MAX_INSTRUCTIONS) return fail(`程序不能超过 ${MAX_INSTRUCTIONS} 条指令。`);
+  if (!Array.isArray(program.instructions) || program.instructions.length === 0) return fail("程序还没有可执行的内容。");
+  if (program.instructions.length > MAX_INSTRUCTIONS) return fail(`程序内容不能超过 ${MAX_INSTRUCTIONS} 行。`);
   const seenIds = new Set();
   for (let index = 0; index < program.instructions.length; index += 1) {
     const item = program.instructions[index];
     if (typeof item?.id === "string" && item.id) {
-      if (seenIds.has(item.id)) return fail(`指令 id 重复：${item.id}；每条指令的 id 必须唯一。`, index + 1);
+      if (seenIds.has(item.id)) return fail(`第 ${index + 1} 行和前面的内容重复了，请保留一份。`, index + 1);
       seenIds.add(item.id);
     }
     const result = validateInstruction(level, item, index);
@@ -249,12 +249,12 @@ export function evaluateValue(expr, state) {
     if (!Object.prototype.hasOwnProperty.call(state.vars || {}, expr.name)) return fail(`记忆盒里的 ${expr.name} 还是空的。`);
     return { ok: true, value: state.vars[expr.name] };
   }
-  if (expr?.type !== "add" && expr?.type !== "subtract") return fail("数值表达式无效。");
+  if (expr?.type !== "add" && expr?.type !== "subtract") return fail("这里的数值写法还不能使用。");
   const left = evaluateValue(expr.left, state);
   if (!left.ok) return left;
   const right = evaluateValue(expr.right, state);
   if (!right.ok) return right;
-  if (typeof left.value !== "number" || typeof right.value !== "number") return fail("只有数字可以参与 update。");
+  if (typeof left.value !== "number" || typeof right.value !== "number") return fail("这里需要用数字来计算。");
   return { ok: true, value: expr.type === "add" ? left.value + right.value : left.value - right.value };
 }
 
@@ -273,7 +273,7 @@ function initialState(level) {
 }
 
 function errorState(state, message, line) {
-  const displayMessage = formatWorldText(null, message);
+  const displayMessage = message;
   return {
     ...state,
     phase: "error",
@@ -291,8 +291,8 @@ function errorState(state, message, line) {
 
 function checkRequirements(level, state, requirements = []) {
   for (const requirement of requirements) {
-    if (requirement.type === "memoryMin" && Number(state.vars?.[requirement.name] ?? 0) < Number(requirement.value)) return "中继站收到的 energy 还不够。";
-    if (requirement.type === "carried" && state.carried !== requirement.value) return "Unit-0 到达中继站时没有带着需要的物件。";
+    if (requirement.type === "memoryMin" && Number(state.vars?.[requirement.name] ?? 0) < Number(requirement.value)) return "中继站还没有亮起来，energy 还不够。";
+    if (requirement.type === "carried" && state.carried !== requirement.value) return "Unit-0 到达中继站时，手里还是空的。";
     if (requirement.type === "memoryExists" && !Object.prototype.hasOwnProperty.call(state.vars || {}, requirement.name)) return `记忆盒里的 ${requirement.name} 还是空的。`;
   }
   return "";
@@ -317,7 +317,7 @@ function calculationPayload(item, state) {
     };
   }
   const right = evaluateValue(item.value, state);
-  if (!right.ok || typeof oldValue !== "number" || typeof right.value !== "number") return { ok: false, message: "update 需要两个数字。" };
+  if (!right.ok || typeof oldValue !== "number" || typeof right.value !== "number") return { ok: false, message: "这里需要两个数字才能相加。" };
   return { ok: true, payload: { name: item.name, leftValue: oldValue, operator: "+", rightValue: right.value, newValue: oldValue + right.value }, oldValue };
 }
 
@@ -340,7 +340,7 @@ function applyEvent(level, state, event) {
     next.unitMoved = true;
     return next;
   }
-  if (event.kind === "unreachable") return errorState(state, `${getWorldLabel(level, event.payload.from)} 和 ${getWorldLabel(level, event.payload.to)} 之间没有已绘制的轨道。`, event.sourceLine);
+  if (event.kind === "unreachable") return errorState(state, "这段轨道还没有接通。", event.sourceLine);
 
   if (event.kind === "store-memory") {
     const { stage, name, newValue, oldValue = null } = event.payload;
@@ -355,7 +355,7 @@ function applyEvent(level, state, event) {
       next.dataToken = { name, value };
       next.tokenPosition = "memory";
       next.tokenTransfer = { phase: "memory", id: state.tokenTransfer.id + 1, name, value, edge: null };
-      next.event = `记忆盒接收 ${name} = ${value}`;
+      next.event = `记忆盒收到 ${name} = ${value}`;
       return next;
     }
     if (stage === "commit") {
@@ -382,7 +382,7 @@ function applyEvent(level, state, event) {
     if (item.type === "update") next.pendingCalculation = { name, oldValue: value };
     if (item.type === "branch") next.pendingBranch = { name, value };
     next.tokenTransfer = { phase: "memory", id: state.tokenTransfer.id + 1, name, value, edge: null };
-    next.event = `加载 ${name} = ${value}`;
+    next.event = `记忆盒取出 ${name} = ${value}`;
     return next;
   }
 
@@ -393,7 +393,7 @@ function applyEvent(level, state, event) {
     next.pendingCalculation = null;
     next.dataToken = { name: item.name, value: calculation.payload.newValue };
     next.tokenPosition = "memory";
-    next.event = `计算 ${item.name}：${calculation.payload.leftValue} ${calculation.payload.operator} ${calculation.payload.rightValue} = ${calculation.payload.newValue}`;
+    next.event = `${item.name} 从 ${calculation.payload.leftValue} 变成 ${calculation.payload.newValue}`;
     return next;
   }
 
@@ -402,13 +402,13 @@ function applyEvent(level, state, event) {
     next.tokenEdge = { from: event.payload.from, to: event.payload.to };
     next.tokenTransfer = { phase: "memory-to-gate", id: state.tokenTransfer.id + 1, name: event.payload.name, value: event.payload.value, edge: next.tokenEdge };
     next.tokenAnimation = { phase: "memory-to-gate", edge: next.tokenEdge, progress: 0 };
-    next.event = `数据沿直连轨道前往 ${getWorldLabel(level, event.payload.to)}`;
+    next.event = "";
     return next;
   }
 
   if (event.kind === "gate-receive") {
-    if (!state.pendingBranch || state.tokenPosition !== "gate") return errorState(state, "判断门还没有收到记忆盒里的值。", event.sourceLine);
-    next.event = `判断门收到 ${event.payload.name} = ${event.payload.value}`;
+    if (!state.pendingBranch || state.tokenPosition !== "gate") return errorState(state, "判断门还没看到记忆盒里的值。", event.sourceLine);
+    next.event = `判断门看到了 ${event.payload.name} = ${event.payload.value}`;
     next.tokenTransfer = { ...state.tokenTransfer, phase: "gate", edge: null };
     next.tokenAnimation = { phase: "gate", edge: null, progress: 1 };
     return next;
@@ -421,7 +421,7 @@ function applyEvent(level, state, event) {
     if (!left.ok || !right.ok) return errorState(state, "判断门无法完成比较。", event.sourceLine);
     const result = compareValues(left.value, item.operator, right.value);
     next.comparison = { left: left.value, operator: item.operator, right: right.value, result, path: "" };
-    next.event = `判断 ${left.value} ${item.operator} ${right.value} · ${result ? "成立" : "不成立"}`;
+    next.event = `${left.value} ${item.operator} ${right.value} · ${result ? "成立" : "不成立"}`;
     return next;
   }
 
@@ -431,7 +431,7 @@ function applyEvent(level, state, event) {
     next.gateBranch = event.payload.result ? "accept" : "reject";
     next.gateOpen = true;
     next.comparison = { ...state.comparison, path: next.path };
-    next.event = `判断门打开 ${getWorldLabel(level, next.path)}`;
+    next.event = `判断门打开了${getWorldLabel(level, next.path)}。`;
     return next;
   }
 
@@ -442,7 +442,7 @@ function applyEvent(level, state, event) {
     next.tokenAnimation = null;
     next.tokenEdge = null;
     next.tokenTransfer = { ...state.tokenTransfer, phase: "consumed", edge: null };
-    next.event = "判断门已消费这份数据";
+    next.event = "";
     return next;
   }
 
@@ -454,7 +454,7 @@ function applyEvent(level, state, event) {
     next.memoryKey = name;
     next.dataToken = { name, value: next.energy };
     next.tokenPosition = "memory";
-    next.event = `充电完成  ${name} = ${next.energy}`;
+    next.event = `Unit-0 充好电，${name} = ${next.energy}`;
     return next;
   }
 
@@ -462,7 +462,7 @@ function applyEvent(level, state, event) {
     if (state.unitNode !== event.payload.at) return errorState(state, "Unit-0 还没有到取物点。", event.sourceLine);
     next.carried = event.payload.item;
     if (event.payload.item === "relay_core") next.coreLocation = "carried";
-    next.event = `取走 ${getWorldItemLabel(level, event.payload.item)}`;
+    next.event = `Unit-0 拿起了 ${getWorldItemLabel(level, event.payload.item)}`;
     return next;
   }
 
@@ -473,7 +473,7 @@ function applyEvent(level, state, event) {
     if (level.worldRules?.relayCore && state.carried !== level.worldRules.relayCore) {
       next.relaySocket = "empty";
       next.mood = "puzzled";
-      return errorState(next, `${getWorldLabel(level, target)} 的插槽是空的，Unit-0 有点困惑：先把 ${getWorldItemLabel(level, level.worldRules.relayCore)} 带来。`, event.sourceLine);
+      return errorState(next, "插槽还是空的。核心还在后面。", event.sourceLine);
     }
     if (level.worldRules?.relayCore) {
       next.relayInstalled = true;
@@ -482,11 +482,13 @@ function applyEvent(level, state, event) {
       next.relaySocket = "sealed";
     }
     next.delivered = true;
-    next.event = `${getWorldLabel(level, target)} 已收到交付`;
+    next.event = level.worldRules?.relayCore
+      ? "咔哒——核心装回去了。"
+      : getWorldLabel(level, target) === "中央塔" ? "中央塔重新启动。" : "中继站亮了起来。";
     return next;
   }
 
-  return errorState(state, "暂不支持这条指令。", event.sourceLine);
+  return errorState(state, "这段内容现在还不能执行。", event.sourceLine);
 }
 
 export class Runtime {
@@ -719,10 +721,9 @@ export class Runtime {
     this.task = null;
     const ok = evaluateSuccess(this.level, this.executionProgram, this.state);
     const text = ok ? this.level.successText : (this.state.error || this.level.failureCases?.[0]?.message || "程序没有完成，请重置后再试。");
-    const displayText = formatWorldText(this.level, text);
-    this.state = { ...this.state, phase: ok ? "success" : "error", success: ok, eventType: ok ? "success" : "error", event: displayText, error: ok ? "" : displayText, activeLine: ok ? 0 : this.state.activeLine };
+    this.state = { ...this.state, phase: ok ? "success" : "error", success: ok, eventType: ok ? "success" : "error", event: text, error: ok ? "" : text, activeLine: ok ? 0 : this.state.activeLine };
     this.notify();
-    this.onFinish?.({ ok, text: displayText, state: this.snapshotState() });
+    this.onFinish?.({ ok, text, state: this.snapshotState() });
   }
 
   snapshotState() { return clone(this.state); }

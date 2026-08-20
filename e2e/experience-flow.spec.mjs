@@ -9,7 +9,7 @@ test("首屏目标清晰、代码未被自动替换，且外围界面中文化",
   await page.locator("#introButton").click();
   await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "true", { timeout: 8_000 });
   await expect(page.locator("#levelTitle")).toHaveText("唤醒轨道");
-  await expect(page.locator("#goalText")).toContainText("充电");
+  await expect(page.locator("#goalText")).toContainText("充好电");
   const initialCode = await page.locator("#codeLines").innerText();
   expect(initialCode).toContain('move("charge")');
   expect(initialCode).toContain('deliver("relay")');

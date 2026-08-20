@@ -1,4 +1,4 @@
-import { cloneProgram, createProgram, formatWorldText, getLevel, getLevels } from "./levels.js";
+import { cloneProgram, createProgram, getLevel, getLevels } from "./levels.js";
 import { Runtime } from "./runtime.js";
 import { CodePanel } from "./code-panel.js";
 import { WorldView } from "./world.js";
@@ -26,10 +26,6 @@ const seenLaws = new Set();
 const hintIndexes = new Map();
 
 const world = new WorldView(els.canvas, els.mirror);
-
-function displayText(text, preserveCodeWords = false) {
-  return formatWorldText(level, text, { preserveCodeWords });
-}
 
 function applyControlState(state) {
   const runtimeLocked = ["demo", "running", "paused", "success"].includes(state?.phase);
@@ -60,7 +56,7 @@ function finishPresentation() {
 function playLawBeat() {
   if (!level.law || seenLaws.has(level.law) || !level.lawBeat) { finishPresentation(); return; }
   seenLaws.add(level.law);
-  els.sceneCaption.textContent = displayText(level.lawBeat.caption, true);
+  els.sceneCaption.textContent = level.lawBeat.caption;
   els.sceneCaption.classList.add("visible");
   world.playBeat(level, level.lawBeat, () => { els.sceneCaption?.classList.remove("visible"); finishPresentation(); });
 }
@@ -94,11 +90,11 @@ function showLevel(index) {
   runtime?.stopLoop();
   runtime = new Runtime(level, program, (state) => render(state), (result) => handleFinish(result));
   els.zone.textContent = level.zone;
-  els.title.textContent = displayText(level.title, true);
-  els.story.textContent = displayText(level.story, true);
-  els.goal.textContent = displayText(level.goal, true);
+  els.title.textContent = level.title;
+  els.story.textContent = level.story;
+  els.goal.textContent = level.goal;
   els.levelNumber.textContent = String(level.id).padStart(2, "0");
-  els.help.textContent = displayText(level.help || "先观察世界正在回应什么。", true);
+  els.help.textContent = level.help || "先观察世界正在回应什么。";
   els.next.classList.remove("visible");
   els.next.disabled = true;
   els.sceneCaption.textContent = "";
@@ -114,8 +110,8 @@ function render(state) {
   lastState = state;
   world.render(level, state);
   code.render(level, displayProgram, presentationLocked ? { ...state, phase: "demo" } : state);
-  els.event.textContent = displayText(state.event || "等待操作。");
-  els.message.textContent = displayText(state.error || state.event || "世界正在等待。");
+  els.event.textContent = state.event || "";
+  els.message.textContent = state.error || state.event || "";
   els.message.className = "runtime-message";
   if (state.phase === "error") els.message.classList.add("error");
   if (state.phase === "success") els.message.classList.add("success");
@@ -135,19 +131,19 @@ function updateDots() {
     dot.className = "progress-dot";
     if (index === levelIndex) dot.classList.add("current");
     if (index < levelIndex) dot.classList.add("done");
-    dot.title = displayText(item.title, true);
+    dot.title = item.title;
     els.dots.append(dot);
   });
 }
 
 function handleFinish(result) {
-  if (!result.ok) { showToast(displayText(result.text || "程序已停止，请重置后再试。")); return; }
+  if (!result.ok) { showToast(result.text || "程序已停止，请重置后再试。"); return; }
   els.toast.classList.remove("show");
   els.toast.textContent = "";
   els.next.classList.add("visible");
-  els.cardKicker.textContent = levelIndex === levels.length - 1 ? "城市重新呼吸" : "交付完成";
-  els.cardTitle.textContent = displayText(level.successTitle, true);
-  els.cardText.textContent = displayText(level.successText, true);
+  els.cardKicker.textContent = levelIndex === levels.length - 1 ? "城市重新呼吸" : "修复完成";
+  els.cardTitle.textContent = level.successTitle;
+  els.cardText.textContent = level.successText;
   els.cardNext.textContent = levelIndex === levels.length - 1 ? "再修一次  ↺" : "继续  →";
   els.card.classList.remove("hidden");
   els.cardNext.focus();
@@ -178,7 +174,7 @@ els.hint.addEventListener("click", () => {
   if (!steps.length) return;
   const nextIndex = Math.min((hintIndexes.get(level.id) ?? -1) + 1, steps.length - 1);
   hintIndexes.set(level.id, nextIndex);
-  const hint = displayText(steps[nextIndex], true);
+  const hint = steps[nextIndex];
   els.help.textContent = hint;
   showToast(hint);
 });

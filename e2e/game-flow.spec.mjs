@@ -51,7 +51,7 @@ test.describe("Unit-0 真实交互 vertical slice", () => {
     await expect(page.locator("#app")).toHaveAttribute("data-intro-complete", "true");
     await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "false");
     await expect(page.locator("#runButton")).toBeDisabled();
-    await expect(page.locator("#sceneCaption")).toContainText("轨道");
+    await expect(page.locator("#sceneCaption")).toContainText("充电站");
     await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "true", { timeout: 8_000 });
     await expect(page.locator("#runButton")).toBeEnabled();
 
@@ -59,7 +59,7 @@ test.describe("Unit-0 真实交互 vertical slice", () => {
     await expect(page.locator("#introSequence")).toBeHidden();
     await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "false");
     await expect(page.locator("#runButton")).toBeDisabled();
-    await expect(page.locator("#sceneCaption")).toContainText("轨道");
+    await expect(page.locator("#sceneCaption")).toContainText("充电站");
     await expect(page.locator("#app")).toHaveAttribute("data-app-ready", "true", { timeout: 8_000 });
   });
 
@@ -143,7 +143,7 @@ test.describe("Unit-0 真实交互 vertical slice", () => {
     await page.locator("#runButton").click();
     await waitSuccess(page);
     await expect(page.locator("#worldMirror")).toHaveAttribute("data-sun-visible", "true");
-    await expect(page.locator("#cardTitle")).toContainText("晨光");
+    await expect(page.locator("#cardTitle")).toHaveText("中央塔重新启动。");
   });
 
   test("移动端无横向溢出，worldMirror 仍为隐藏无障碍状态", async ({ page }) => {
